@@ -47,17 +47,29 @@ internal class DiscreteDistributionTest {
 
     @Test
     fun support() {
+        assertEquals(Coin.values().toSet(), fairCoin.support().toSet())
     }
 
     @Test
     fun chain() {
+        val coinColors = fairCoin.chain { coin ->
+            uniformColors.map { it to coin }
+        }
+        assertEquals(8, coinColors.support().count())
+        assertEquals(0.125, coinColors.score(Color.RED to Coin.HEADS))
+        assertEquals(0.125, coinColors.score(Color.WHITE to Coin.HEADS))
+        assertEquals(0.125, coinColors.score(Color.BLUE to Coin.HEADS))
+        assertEquals(0.125, coinColors.score(Color.GREEN to Coin.HEADS))
+        assertEquals(0.125, coinColors.score(Color.RED to Coin.TAILS))
+        assertEquals(0.125, coinColors.score(Color.WHITE to Coin.TAILS))
+        assertEquals(0.125, coinColors.score(Color.BLUE to Coin.TAILS))
+        assertEquals(0.125, coinColors.score(Color.GREEN to Coin.TAILS))
     }
 
     @Test
     fun map() {
-    }
-
-    @Test
-    fun getValues() {
+        val strings = fairCoin.map { it.toString() }
+        assertEquals(0.5, strings.score("HEADS"))
+        assertEquals(0.5, strings.score("TAILS"))
     }
 }

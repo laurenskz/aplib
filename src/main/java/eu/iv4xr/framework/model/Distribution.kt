@@ -10,4 +10,5 @@ interface Distribution<T> {
     fun support(): Sequence<T>
     fun <A> chain(continuation: (T) -> Distribution<A>): Distribution<A>
     fun <R> map(modifier: (T) -> R): Distribution<R>
+    fun supportWithDensities(): Map<T, Double> = support().associateWith { score(it) }
 }
