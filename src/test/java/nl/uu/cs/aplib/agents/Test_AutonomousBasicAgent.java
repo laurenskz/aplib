@@ -1,9 +1,7 @@
 package nl.uu.cs.aplib.agents;
 
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.File;
@@ -23,6 +21,7 @@ import nl.uu.cs.aplib.multiAgentSupport.ComNode;
 import nl.uu.cs.aplib.multiAgentSupport.Message;
 import nl.uu.cs.aplib.multiAgentSupport.Message.MsgCastType;
 
+@Disabled
 public class Test_AutonomousBasicAgent {
 
     static class MyState extends State {
