@@ -45,6 +45,12 @@ class DiscreteDistribution<T>(val values: Map<T, Double>, private val tolerance:
     }
 
     override fun <R> map(modifier: (T) -> R): Distribution<R> {
-        return DiscreteDistribution(values.mapKeys { modifier(it.key) })
+        val result = mutableMapOf<R, Double>()
+        for (value in supportWithDensities()) {
+            result.compute(modifier(value.key)) { _, prob ->
+                prob?.plus(value.value) ?: value.value
+            }
+        }
+        return DiscreteDistribution(result)
     }
 }

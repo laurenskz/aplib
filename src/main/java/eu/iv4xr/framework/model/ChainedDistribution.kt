@@ -11,7 +11,11 @@ class ChainedDistribution<T, R>(private val dist: Distribution<T>, private val c
 
     override fun score(predicate: (R) -> Boolean): Double {
         return dist.support()
-                .sumByDouble { dist.score(it) * continuation(it).score(predicate) }
+                .sumByDouble {
+                    val score = dist.score(it)
+                    val score1 = continuation(it).score(predicate)
+                    score * score1
+                }
     }
 
     override fun filter(predicate: (R) -> Boolean): Distribution<R> {
@@ -27,6 +31,7 @@ class ChainedDistribution<T, R>(private val dist: Distribution<T>, private val c
     override fun support(): Sequence<R> {
         return dist.support()
                 .flatMap { continuation(it).support() }
+                .distinct()
     }
 
     override fun <A> chain(continuation: (R) -> Distribution<A>): Distribution<A> {

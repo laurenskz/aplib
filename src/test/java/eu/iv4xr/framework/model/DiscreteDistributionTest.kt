@@ -71,5 +71,6 @@ internal class DiscreteDistributionTest {
         val strings = fairCoin.map { it.toString() }
         assertEquals(0.5, strings.score("HEADS"))
         assertEquals(0.5, strings.score("TAILS"))
+        assertEquals(1.0, fairCoin.map { "" }.score(""))
     }
 }
