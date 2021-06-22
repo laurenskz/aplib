@@ -36,11 +36,7 @@ internal class DiscreteDistributionTest {
 
     @Test
     fun sample() {
-        val random = Random(123456)
-        val counts = (0 until 1000).map {
-            fairCoin.sample(random)
-        }.groupBy { it }
-                .mapValues { it.value.count() }
+        val counts = fairCoin.sample(1000, Random(123456))
         assertEquals(511, counts[Coin.HEADS])
         assertEquals(489, counts[Coin.TAILS])
     }

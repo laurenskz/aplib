@@ -50,11 +50,7 @@ internal class ChainedDistributionTest {
 
     @Test
     fun sample() {
-        val random = Random(123456)
-        val counts = (0 until 100000).map {
-            weather.sample(random)
-        }.groupBy { it }
-                .mapValues { it.value.count() }
+        val counts = weather.sample(100000, Random(123456))
         assertEquals(34889, counts["Sun"])
         assertEquals(49992, counts["Cloudy"])
         assertEquals(15119, counts["Rain"])
