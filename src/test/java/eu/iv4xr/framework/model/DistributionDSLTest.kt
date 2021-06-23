@@ -17,9 +17,43 @@ internal class DistributionDSLTest {
     }
 
     @Test
+    fun ifd() {
+        val rain = Distributions.bernoulli(0.3)
+        val temperature = ifd(rain, Distributions.constant(7), Distributions.constant(9))
+        assertEquals(0.3, temperature.score(7))
+    }
+
+    @Test
     fun if_() {
         val rain = Distributions.bernoulli(0.3)
-        val temperature = if_(rain, Distributions.constant(7), Distributions.constant(9))
-        print(temperature.supportWithDensities())
+        val temperature = if_(rain, 7, 9)
+        assertEquals(0.3, temperature.score(7))
     }
+
+    @Test
+    fun if_2() {
+        val rain = flip(0.3)
+        val temperature = if_(rain) {
+            7
+        }.else_ {
+            19
+        }
+        assertEquals(0.3, temperature.score(7))
+        assertEquals(0.7, temperature.score(19))
+    }
+
+    @Test
+    fun ifd2() {
+        val rain = flip(0.3)
+        val state = ifd(rain) {
+            Distributions.uniform("Sad", "Cold")
+        }.elsed {
+            Distributions.uniform("Sun", "Ice")
+        }
+        assertEquals(0.15, state.score("Sad"))
+        assertEquals(0.15, state.score("Cold"))
+        assertEquals(0.35, state.score("Sun"))
+        assertEquals(0.35, state.score("Ice"))
+    }
+
 }
