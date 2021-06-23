@@ -56,4 +56,12 @@ internal class DistributionDSLTest {
         assertEquals(0.35, state.score("Ice"))
     }
 
+    @Test
+    fun plus() {
+        val grade1 = Distributions.uniform(5.0, 9.0)
+        val grade2 = Distributions.uniform(12.0, 21.0)
+        val sum = grade1 + grade2
+        print(sum.supportWithDensities())
+    }
+
 }
