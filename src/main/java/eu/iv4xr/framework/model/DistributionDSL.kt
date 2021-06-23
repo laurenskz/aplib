@@ -10,8 +10,8 @@ fun <T> Distribution<T>.sample(count: Int, random: Random): Map<T, Int> {
             .mapValues { it.value.count() }
 }
 
-fun <A> Distribution<Boolean>.`if`(t: Distribution<A>, f: Distribution<A>): Distribution<A> {
-    return chain {
+fun <A> if_(case: Distribution<Boolean>, t: Distribution<A>, f: Distribution<A>): Distribution<A> {
+    return case.chain {
         if (it) t else f
     }
 }

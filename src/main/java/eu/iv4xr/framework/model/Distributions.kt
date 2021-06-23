@@ -28,6 +28,10 @@ object Distributions {
         return discrete(true to p, false to (1 - p))
     }
 
+    fun <T> constant(t: T): Distribution<T> {
+        return discrete(t to 1.0)
+    }
+
 }
 
 
