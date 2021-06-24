@@ -1,6 +1,7 @@
-package eu.iv4xr.framework.model
+package eu.iv4xr.framework.model.examples
 
-import eu.iv4xr.framework.model.Distributions.constant
+import eu.iv4xr.framework.model.*
+import eu.iv4xr.framework.model.Distributions.deterministic
 
 data class Location(private val x: Int, private val y: Int) {
     operator fun plus(offset: Location) = Location(x + offset.x, y + offset.y)
@@ -29,13 +30,7 @@ fun refreshGameState(game: Game) = game.copy(state = gameState(game))
 
 fun performMove(game: Game, move: Location): Distribution<Game> {
     val playerMoved = refreshGameState(game.copy(player = game.player + move))
-    if (playerMoved.state == State.DEAD) return constant(playerMoved)
+    if (playerMoved.state == State.DEAD) return deterministic(playerMoved)
     val enemyMoved = updateEnemy(playerMoved)
     return enemyMoved.map(::refreshGameState)
-}
-
-fun main() {
-    val game = Game(Location(0, 0), Location(-1, -3), Location(-1, -1), State.ALIVE)
-    print(updateEnemy(game).densityString())
-    val nextState = performMove(game, Location(0, 1))
 }

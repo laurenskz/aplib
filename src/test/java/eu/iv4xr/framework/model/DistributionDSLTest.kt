@@ -19,7 +19,7 @@ internal class DistributionDSLTest {
     @Test
     fun ifd() {
         val rain = Distributions.bernoulli(0.3)
-        val temperature = ifd(rain, Distributions.constant(7), Distributions.constant(9))
+        val temperature = ifd(rain, Distributions.deterministic(7), Distributions.deterministic(9))
         assertEquals(0.3, temperature.score(7))
     }
 

@@ -1,6 +1,5 @@
 package eu.iv4xr.framework.model
 
-import org.junit.jupiter.engine.execution.ConditionEvaluator
 import kotlin.random.Random
 
 fun <T> Distribution<T>.sample(count: Int, random: Random): Map<T, Int> {
@@ -22,6 +21,9 @@ fun <T> Distribution<T>.expectedValue(evaluator: (T) -> Double): Double {
         evaluator(it.key) * it.value
     }.sum()
 }
+
+fun <T : Number> Distribution<T>.expectedValue() = expectedValue { it.toDouble() }
+
 
 @JvmName("plusDouble")
 operator fun Distribution<Double>.plus(other: Distribution<Double>) = chain { other.plus(it) }
@@ -126,6 +128,8 @@ operator fun <T, R> Distribution<(T) -> R>.invoke(t: T) = map { it(t) }
 
 fun flip(p: Double) = Distributions.bernoulli(p)
 
+fun <T> always(t: T) = Distributions.deterministic(t)
+
 infix fun <T, R> Distribution<T>.times(b: Distribution<R>): Distribution<Pair<T, R>> {
     return chain { t -> b.map { r -> t to r } }
 }
@@ -138,13 +142,13 @@ fun <A> ifd(case: Distribution<Boolean>, t: Distribution<A>, f: Distribution<A>)
 
 fun <A> if_(case: Distribution<Boolean>, t: A, f: A): Distribution<A> {
     return case.chain {
-        if (it) Distributions.constant(t) else Distributions.constant(f)
+        if (it) Distributions.deterministic(t) else Distributions.deterministic(f)
     }
 }
 
 fun <A> if_(case: Distribution<Boolean>, t: () -> A): IfBuilder<A> {
     return IfBuilder(case) {
-        Distributions.constant(t())
+        Distributions.deterministic(t())
     }
 }
 
@@ -157,7 +161,7 @@ class IfBuilder<A>(private val case: Distribution<Boolean>, private val t: () ->
 
     fun else_(f: () -> A): Distribution<A> {
         return case.chain {
-            if (it) t() else Distributions.constant(f())
+            if (it) t() else Distributions.deterministic(f())
         }
     }
 

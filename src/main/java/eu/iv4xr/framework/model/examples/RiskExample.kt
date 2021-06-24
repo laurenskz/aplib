@@ -1,7 +1,9 @@
-package eu.iv4xr.framework.model
+package eu.iv4xr.framework.model.examples
 
-import kotlin.random.Random
-import kotlin.system.exitProcess
+import eu.iv4xr.framework.model.Distribution
+import eu.iv4xr.framework.model.Distributions
+import eu.iv4xr.framework.model.densityString
+import eu.iv4xr.framework.model.expectedValue
 
 data class Roll(val high: Int, val low: Int?)
 
@@ -52,8 +54,8 @@ fun main() {
     val allPossibleAttacks = (1..6).flatMap { x -> (1..6).map { y -> Roll(x, y) } }.filter { it.low != null && it.high >= it.low }
     println("Throws where defender should use 1 die")
     for (attack in allPossibleAttacks) {
-        val expectedValue1 = defenseRoll(1).map { battle(attack, it) }.expectedValue { it.toDouble() }
-        val expectedValue2 = defenseRoll(2).map { battle(attack, it) }.expectedValue { it.toDouble() }
+        val expectedValue1 = defenseRoll(1).map { battle(attack, it) }.expectedValue()
+        val expectedValue2 = defenseRoll(2).map { battle(attack, it) }.expectedValue()
         if (expectedValue1 < expectedValue2) println(attack)
     }
     val expectedAttackAdvantage = simulation()

@@ -32,4 +32,22 @@ internal class DistributionsTest {
         assertEquals(756, sample[true])
         assertEquals(244, sample[false])
     }
+
+    fun <T> randList(dist: Distribution<T>, count: Int): Distribution<List<T>> {
+        if (count == 0) return always(listOf<T>())
+        return dist.chain { new ->
+            randList(dist, count - 1).map { listOf(new) + it }
+        }
+    }
+
+
+    /**
+     * This distribution is very large, it contains 2 billion members, therefore methods like scoring won't work
+     * But sampling is still efficient because we do it lazily
+     */
+    @Test
+    fun sampleLargeDist() {
+        randList(Distributions.uniform(0 until 2), 32).sample(10000, Random)
+
+    }
 }
