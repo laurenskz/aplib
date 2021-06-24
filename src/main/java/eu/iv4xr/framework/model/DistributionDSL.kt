@@ -1,5 +1,6 @@
 package eu.iv4xr.framework.model
 
+import org.junit.jupiter.engine.execution.ConditionEvaluator
 import kotlin.random.Random
 
 fun <T> Distribution<T>.sample(count: Int, random: Random): Map<T, Int> {
@@ -8,6 +9,18 @@ fun <T> Distribution<T>.sample(count: Int, random: Random): Map<T, Int> {
     }
             .groupBy { it }
             .mapValues { it.value.count() }
+}
+
+fun <T> Distribution<T>.densityString(): String {
+    return supportWithDensities().map {
+        it.key.toString() + " : " + it.value.toString() + "\n"
+    }.joinToString("")
+}
+
+fun <T> Distribution<T>.expectedValue(evaluator: (T) -> Double): Double {
+    return supportWithDensities().map {
+        evaluator(it.key) * it.value
+    }.sum()
 }
 
 @JvmName("plusDouble")
@@ -112,6 +125,10 @@ operator fun <T, R> Distribution<(T) -> R>.invoke(t: T) = map { it(t) }
 
 
 fun flip(p: Double) = Distributions.bernoulli(p)
+
+infix fun <T, R> Distribution<T>.times(b: Distribution<R>): Distribution<Pair<T, R>> {
+    return chain { t -> b.map { r -> t to r } }
+}
 
 fun <A> ifd(case: Distribution<Boolean>, t: Distribution<A>, f: Distribution<A>): Distribution<A> {
     return case.chain {
