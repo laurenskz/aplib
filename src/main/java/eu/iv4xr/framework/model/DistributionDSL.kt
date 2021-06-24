@@ -2,6 +2,9 @@ package eu.iv4xr.framework.model
 
 import kotlin.random.Random
 
+/**
+ * Sample multiple times
+ */
 fun <T> Distribution<T>.sample(count: Int, random: Random): Map<T, Int> {
     return (0 until count).map {
         sample(random)
@@ -10,21 +13,32 @@ fun <T> Distribution<T>.sample(count: Int, random: Random): Map<T, Int> {
             .mapValues { it.value.count() }
 }
 
+/**
+ * Useful for printing all elements with their probability
+ */
 fun <T> Distribution<T>.densityString(): String {
     return supportWithDensities().map {
         it.key.toString() + " : " + it.value.toString() + "\n"
     }.joinToString("")
 }
 
+/**
+ * Expected value of this distribution, given a function for associating a value with each element of this distribution
+ */
 fun <T> Distribution<T>.expectedValue(evaluator: (T) -> Double): Double {
     return supportWithDensities().map {
         evaluator(it.key) * it.value
     }.sum()
 }
 
+/**
+ * All number distributions have an expected value
+ */
 fun <T : Number> Distribution<T>.expectedValue() = expectedValue { it.toDouble() }
 
-
+/**
+ * Make all numerical distributions have overloaded arithmetic operators
+ */
 @JvmName("plusDouble")
 operator fun Distribution<Double>.plus(other: Distribution<Double>) = chain { other.plus(it) }
 operator fun Distribution<Double>.plus(t: Double) = map { it.plus(t) }
@@ -123,48 +137,75 @@ operator fun Distribution<Long>.rangeTo(t: Long) = map { it.rangeTo(t) }
 operator fun Long.rangeTo(other: Distribution<Long>) = other.map { this.rangeTo(it) }
 
 
-operator fun <T, R> Distribution<(T) -> R>.invoke(t: T) = map { it(t) }
-
-
+/**
+ * Flip a coin, it is true with probability p
+ */
 fun flip(p: Double) = Distributions.bernoulli(p)
 
+/**
+ * Make element t have probability 1. I.e. a deterministic distribution
+ */
 fun <T> always(t: T) = Distributions.deterministic(t)
 
+/**
+ * Computes the cartesian product of two distributions
+ */
 infix fun <T, R> Distribution<T>.times(b: Distribution<R>): Distribution<Pair<T, R>> {
     return chain { t -> b.map { r -> t to r } }
 }
 
+/**
+ * Return a distribution based on the result of a boolean distribution
+ */
 fun <A> ifd(case: Distribution<Boolean>, t: Distribution<A>, f: Distribution<A>): Distribution<A> {
     return case.chain {
         if (it) t else f
     }
 }
 
+/**
+ * Return a distribution (deterministic one) based on the result of a boolean
+ */
 fun <A> if_(case: Distribution<Boolean>, t: A, f: A): Distribution<A> {
     return case.chain {
         if (it) Distributions.deterministic(t) else Distributions.deterministic(f)
     }
 }
 
+/**
+ * Create if else like syntax to use with a boolean distribution. Note that we do not require a distribution here, this is syntactic
+ * sugar for wrapping the supplied value in a deterministic distribution
+ */
 fun <A> if_(case: Distribution<Boolean>, t: () -> A): IfBuilder<A> {
     return IfBuilder(case) {
         Distributions.deterministic(t())
     }
 }
 
+/**
+ * Create if else like syntax, but based on distribution instead of a value
+ */
 fun <A> ifd(case: Distribution<Boolean>, t: () -> Distribution<A>): IfBuilder<A> {
     return IfBuilder(case, t)
 }
 
-
+/**
+ * Wrapper for creating if else like syntax for boolean distributions
+ */
 class IfBuilder<A>(private val case: Distribution<Boolean>, private val t: () -> Distribution<A>) {
 
+    /**
+     * else_ option for when the user does not want to supply a distribution, we wrap it again (syntactic sugar)
+     */
     fun else_(f: () -> A): Distribution<A> {
         return case.chain {
             if (it) t() else Distributions.deterministic(f())
         }
     }
 
+    /**
+     * else option for when the user wants to pass a distribution
+     */
     fun elsed(f: () -> Distribution<A>): Distribution<A> {
         return case.chain {
             if (it) t() else f()
