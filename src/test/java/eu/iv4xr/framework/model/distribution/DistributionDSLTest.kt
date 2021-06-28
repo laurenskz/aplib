@@ -1,4 +1,4 @@
-package eu.iv4xr.framework.model
+package eu.iv4xr.framework.model.distribution
 
 import org.junit.jupiter.api.Test
 
@@ -58,10 +58,8 @@ internal class DistributionDSLTest {
 
     @Test
     fun plus() {
-        val grade1 = Distributions.uniform(5.0, 9.0)
-        val grade2 = Distributions.uniform(12.0, 21.0)
-        val sum = grade1 + grade2
-        print(sum.supportWithDensities())
+        val grade1 = Distributions.discrete(5.0 to 0.1, 9.0 to 0.9)
+        println(grade1.map { 0 }.supportWithDensities())
     }
 
 }

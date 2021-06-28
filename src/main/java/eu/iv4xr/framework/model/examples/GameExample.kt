@@ -1,7 +1,7 @@
 package eu.iv4xr.framework.model.examples
 
-import eu.iv4xr.framework.model.*
-import eu.iv4xr.framework.model.Distributions.deterministic
+import eu.iv4xr.framework.model.distribution.*
+import eu.iv4xr.framework.model.distribution.Distributions.deterministic
 
 /**
  * A location on an infinte grid
@@ -27,6 +27,7 @@ data class Game(val goal: Location, val player: Location, val enemy: Location, v
  */
 fun updateEnemy(game: Game): Distribution<Game> {
     val basicOffset = Distributions.uniform(-1, 0, 1)
+    val basicOffset2 = Distributions.discrete(-1 to 0.25, 0 to 0.5, 1 to 0.25)
     val xyOffset = ifd(flip(0.1), basicOffset * 2, basicOffset)
     val locationDelta = (xyOffset times xyOffset).map { Location(it.first, it.second) }
     return locationDelta.map { game.copy(enemy = game.enemy + it) }

@@ -1,4 +1,4 @@
-package eu.iv4xr.framework.model
+package eu.iv4xr.framework.model.distribution
 
 import org.junit.jupiter.api.Test
 

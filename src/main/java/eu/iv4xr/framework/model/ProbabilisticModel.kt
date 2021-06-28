@@ -1,8 +1,15 @@
 package eu.iv4xr.framework.model
 
+import eu.iv4xr.framework.model.distribution.Distribution
 import nl.uu.cs.aplib.mainConcepts.Environment
 import nl.uu.cs.aplib.mainConcepts.SimpleState
 
+
+enum class StateID {
+    STATE0, STATE1
+}
+
+data class State(val id: StateID, val x: Int = 0, val y: Int = 0)
 
 /**
  * This is the main model the user has to define to define the logic of their game

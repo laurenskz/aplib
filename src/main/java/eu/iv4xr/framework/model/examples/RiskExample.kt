@@ -1,9 +1,7 @@
 package eu.iv4xr.framework.model.examples
 
-import eu.iv4xr.framework.model.Distribution
-import eu.iv4xr.framework.model.Distributions
-import eu.iv4xr.framework.model.densityString
-import eu.iv4xr.framework.model.expectedValue
+import eu.iv4xr.framework.model.distribution.*
+import java.util.ArrayList
 
 data class Roll(val high: Int, val low: Int?)
 
@@ -81,6 +79,10 @@ fun simulation() = attackRoll().chain { attack ->
  * Compute interesting statistics
  */
 fun main() {
+    val maybeTrue = flip(0.1)
+    val list = ArrayList<Int>();
+    list.map {  }
+
     val allPossibleAttacks = (1..6).flatMap { x -> (1..6).map { y -> Roll(x, y) } }.filter { it.low != null && it.high >= it.low }
     println("Throws where defender should use 1 die")
     for (attack in allPossibleAttacks) {
