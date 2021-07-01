@@ -415,7 +415,7 @@ public class GoalStructure {
      * around an instance of {@link Goal}.
      */
     static public class PrimitiveGoal extends GoalStructure {
-        Goal goal;
+        public Goal goal;
 
         /**
          * Create an instance of PrimitiveGoal, wrapping around the given {@link Goal}.

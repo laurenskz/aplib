@@ -20,7 +20,6 @@ public class MinimalAutonomousAgent {
 
         // specifying the goal to solve:
         Goal g = goal("Guess a the magic number (10)").toSolve((Integer x) -> x == 4);
-
         Random rnd = new Random();
 
         // defining a single action as the goal solver:

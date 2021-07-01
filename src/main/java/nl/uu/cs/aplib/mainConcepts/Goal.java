@@ -13,14 +13,14 @@ import nl.uu.cs.aplib.mainConcepts.GoalStructure.PrimitiveGoal;
  * accompanied with a {@link Tactic} which the agent will then use to solve the
  * goal. Use the method {@code withTactic} to attach a {@link Tactic} to a
  * {@code Goal}.
- * 
+ *
  * <p>
  * A {@code Goal} is essentially a predicate over some domain. You can imagine
  * it as a domain of 'proposals' to be proposed to the goal. Proposals on which
  * the predicate returns {@code true} are 'solutions' of the goal. When a goal
  * is given to an agent, the task of the agent is to find a solution for the
  * goal.
- * 
+ *
  * <p>
  * A goal can specify its estimated minimum computation time budget. The agent
  * solving the goal will <b>try</b> (but not committed to) to allocate at least
@@ -30,7 +30,7 @@ import nl.uu.cs.aplib.mainConcepts.GoalStructure.PrimitiveGoal;
  * solving the goal. The time that elapses between two invocations of
  * {@code update()} is not counted. If no time budget is specified, then the
  * budget is assumed as infinite.
- * 
+ *
  * <p>
  * Optionally, we can attach a distance function to a goal. A distance function
  * is a function from the goal domain of proposals to {@code Double}. It is a
@@ -38,9 +38,8 @@ import nl.uu.cs.aplib.mainConcepts.GoalStructure.PrimitiveGoal;
  * information might be exploitable by a strategy when it searches for a
  * solution, e.g. if the strategy implements a search algorithm (hill climbing,
  * evolutionary, etc).
- * 
- * @author wish
  *
+ * @author wish
  */
 public class Goal {
 
@@ -65,7 +64,7 @@ public class Goal {
     /**
      * Create a blank instance of a Goal. It will have no actual predicate as the
      * actual goal.
-     * 
+     *
      * @param name A name to be associated with the goal.
      */
     public Goal(String name) {
@@ -96,10 +95,10 @@ public class Goal {
     /**
      * Set the given function as a goal function. A proposal o is a solution if
      * abs(goalfunction(o)) is a value less than epsilon (default is 0.005).
-     * 
+     *
      * @param goalfunction the goal function to solve.
      * @return The method returns this Goal itself so that it can be used in the
-     *         Fluent Interface style.
+     * Fluent Interface style.
      */
     public Goal ftoSolve_(Function<Object, Double> goalfunction) {
         checkPredicate = goalfunction;
@@ -111,11 +110,11 @@ public class Goal {
      * general typing of the method's signature is for convenience, to allow you to
      * explicitly specify the type of the goal's proposals domain at the point where
      * this method is called, e.g. as in:
-     * 
+     *
      * <pre>
      * Goal g = new Goal().toSolve((Integer x) -> x == 9999);
      * </pre>
-     * 
+     * <p>
      * The method returns this Goal itself so that it can be used in the Fluent
      * Interface style.
      */
@@ -129,11 +128,11 @@ public class Goal {
      * more general typing of the method's signature is for convenience, to allow
      * you to explicitly specify the type of the goal's proposals domain at the
      * point where this method is called, e.g. as in:
-     * 
+     *
      * <pre>
      * Goal g = new Goal().ftoSolve((Integer x) -> x - 9999);
      * </pre>
-     * 
+     * <p>
      * The method returns this Goal itself so that it can be used in the Fluent
      * Interface style.
      */
@@ -163,7 +162,7 @@ public class Goal {
      * Check if a given proposal satisfied this goal (so, if the proposal is a
      * solution). If the proposal is indeed a solution the status of this goal will
      * be set to SUCCESS.
-     * 
+     *
      * <p>
      * A null proposal is always rejected.
      */
@@ -209,6 +208,14 @@ public class Goal {
             return null;
     }
 
+
+    /**
+     * Checks to see if the given proposal would fulfill the goal
+     */
+    public boolean wouldBeSolvedBy(Object proposal) {
+        return checkPredicate.apply(proposal) < epsilon;
+    }
+
     /**
      * To lift this goal to become an instance of {@link Solution}. Conceptually, a
      * Goal is a simplest type of {@link Solution}. Technically, to be more precise,
@@ -216,7 +223,7 @@ public class Goal {
      * of Goal as a Solution is called {@link PrimitiveGoal}, which is a subclass of
      * {@link Solution}. So, this method will lift this goal to a
      * {@link PrimitiveGoal}.
-     * 
+     *
      * @return A new instance of {@link PrimitiveGoal} that wrap around this goal.
      */
     public PrimitiveGoal lift() {
