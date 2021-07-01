@@ -23,7 +23,7 @@ interface ProbabilisticModel<ModelState : Identifiable, ModelAction : Identifiab
     /**
      * Returns the result of executing the action in the environment. The result will be proposed to all goals
      */
-    fun executeAction(action: ModelAction, environment: Environment?): Any
+    fun executeAction(action: ModelAction, state: SimpleState): Any
 
     /**
      * Maps Aplib agent state to a state in the model

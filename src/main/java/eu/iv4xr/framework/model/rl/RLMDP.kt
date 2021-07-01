@@ -12,16 +12,8 @@ import kotlin.random.Random
 
 data class StateWithGoalProgress<State : Identifiable>(val progress: List<Boolean>, val state: State) : Identifiable
 
-class WrappedMDPGoal(private val goal: GoalStructure.PrimitiveGoal, private val reward: Double) : MDPGoal {
-    override fun completed(proposal: Any): Boolean {
-        return goal.goal.wouldBeSolvedBy(proposal)
-    }
 
-    override fun reward() = goal.budget
-
-}
-
-fun allPossibleGoalStates(count: Int): Sequence<List<Boolean>> = if (count == 0) emptySequence() else
+fun allPossibleGoalStates(count: Int): Sequence<List<Boolean>> = if (count == 0) sequenceOf(listOf()) else
     allPossibleGoalStates(count - 1)
             .flatMap { listOf(true cons it, false cons it) }
 
@@ -66,18 +58,39 @@ fun <T> convert(goal: GoalStructure, onItem: (GoalStructure.PrimitiveGoal) -> T)
 
 fun updateGoalStatus(goal: GoalStructure) {
     goal.subgoals.forEach { updateGoalStatus(it) }
-    if (goal.subgoals.all { it.status.success() }) {
+    if (goal is GoalStructure.PrimitiveGoal) {
+        if (goal.goal.status.success()) {
+            goal.status.setToSuccess()
+        }
+    } else if (goal.subgoals.all { it.status.success() }) {
         goal.status.setToSuccess()
     }
 }
 
 class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<ModelState, Action>) : BasicAgent() {
 
-    private lateinit var policy: Policy<StateWithGoalProgress<ModelState>, Action>
+    lateinit var policy: Policy<StateWithGoalProgress<ModelState>, Action>
 
-    fun trainWith(alorithm: RLAlgorithm, timeout: Long) {
-        policy = alorithm.train(RLMDP(model, convert(goal) { WrappedMDPGoal(it, 1.0) }), timeout)
+    fun trainWith(alorithm: RLAlgorithm, timeout: Long): RLAgent<ModelState, Action> {
+        policy = alorithm.train(model, goal, timeout)
+        return this
     }
+
+    fun withPolicy(policy: Policy<StateWithGoalProgress<ModelState>, Action>): RLAgent<ModelState, Action> {
+        this.policy = policy
+        return this
+    }
+
+    override fun attachState(state: SimpleState?): RLAgent<ModelState, Action> {
+        super.attachState(state)
+        return this
+    }
+
+    override fun setGoal(g: GoalStructure?): RLAgent<ModelState, Action> {
+        super.setGoal(g)
+        return this
+    }
+
 
     override fun update() {
         lockEnvironment()
@@ -86,7 +99,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
             val modelState = model.convertState(state)
             val goalProgress = convert(goal) { it.status.success() }
             val action = policy.action(StateWithGoalProgress(goalProgress, modelState))
-            val proposal = model.executeAction(action.sample(Random), state.env())
+            val proposal = model.executeAction(action.sample(Random), state)
             convert(goal) { it.goal.propose(proposal) }
             updateGoalStatus(goal)
         } finally {
