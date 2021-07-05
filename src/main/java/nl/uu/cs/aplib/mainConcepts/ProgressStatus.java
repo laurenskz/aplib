@@ -5,9 +5,8 @@ package nl.uu.cs.aplib.mainConcepts;
  * (whatever this computation is). There are three statuses represented: (1) the
  * computation is still in progress, (2) the computation has completed
  * successfully, and (3) the computation has completed in failure.
- * 
- * @author wish
  *
+ * @author wish
  */
 public class ProgressStatus {
 
@@ -16,7 +15,7 @@ public class ProgressStatus {
     }
 
     ProgressStatus_ status = ProgressStatus_.INPROGRESS;
-    String info;
+    public String info;
 
     /**
      * Create an instance of this class, with null info and status initialized to
@@ -86,7 +85,7 @@ public class ProgressStatus {
      * the given string. You can use the info the describe the reason of the
      * failure.
      */
-    void setToFail(String info) {
+    public void setToFail(String info) {
         status = ProgressStatus_.FAILED;
         this.info = info;
     }
@@ -94,7 +93,7 @@ public class ProgressStatus {
     /**
      * Set the status represented by this instance to FAILED.
      */
-    void setToFail() {
+    public void setToFail() {
         setToFail(null);
     }
 

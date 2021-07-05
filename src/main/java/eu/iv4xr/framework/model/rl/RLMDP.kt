@@ -3,15 +3,36 @@ package eu.iv4xr.framework.model.rl
 import eu.iv4xr.framework.model.ProbabilisticModel
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.always
+import eu.iv4xr.framework.model.distribution.expectedValue
 import eu.iv4xr.framework.utils.cons
-import nl.uu.cs.aplib.AplibEDSL
 import nl.uu.cs.aplib.mainConcepts.BasicAgent
 import nl.uu.cs.aplib.mainConcepts.GoalStructure
 import nl.uu.cs.aplib.mainConcepts.SimpleState
+import java.lang.IllegalArgumentException
 import kotlin.random.Random
 
 data class StateWithGoalProgress<State : Identifiable>(val progress: List<Boolean>, val state: State) : Identifiable
 
+
+fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.stateValue(state: State, discountFactor: Double, depth: Int): Double {
+    if (isTerminal(state)) return 0.0
+    return possibleActions(state).maxOf { action ->
+        qValue(state, action, discountFactor, depth)
+    }
+}
+
+fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.qValue(state: State, action: Action, discountFactor: Double, depth: Int): Double {
+    if (depth == 0) return expectedReward(state, action)
+    return expectedReward(state, action) + discountFactor * transition(state, action).expectedValue { newState ->
+        stateValue(newState, discountFactor, depth - 1)
+    }
+}
+
+fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.expectedReward(state: State, action: Action): Double {
+    return transition(state, action).expectedValue { newState ->
+        reward(state, action, newState).expectedValue()
+    }
+}
 
 fun allPossibleGoalStates(count: Int): Sequence<List<Boolean>> = if (count == 0) sequenceOf(listOf()) else
     allPossibleGoalStates(count - 1)
@@ -21,11 +42,12 @@ fun allPossibleGoalStates(count: Int): Sequence<List<Boolean>> = if (count == 0)
 class RLMDP<State : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<State, Action>, private val goals: List<MDPGoal>) : MDP<StateWithGoalProgress<State>, Action> {
     override fun possibleStates() = model.possibleStates().flatMap { modelState -> allPossibleGoalStates(goals.size).map { StateWithGoalProgress(it, modelState) } }
 
-    override fun possibleActions(state: StateWithGoalProgress<State>) = model.possibleActions(state.state)
+    override fun possibleActions(state: StateWithGoalProgress<State>) = if (isTerminal(state)) emptySequence() else model.possibleActions(state.state)
 
     override fun isTerminal(state: StateWithGoalProgress<State>) = model.isTerminal(state.state)
 
     override fun transition(current: StateWithGoalProgress<State>, action: Action): Distribution<StateWithGoalProgress<State>> {
+        if (isTerminal(current)) throw IllegalArgumentException("Can't perform action in terminal state")
         return model.transition(current.state, action).chain { newState ->
             model.proposal(current.state, action, newState).map { proposal ->
                 StateWithGoalProgress(
@@ -62,17 +84,25 @@ fun updateGoalStatus(goal: GoalStructure) {
         if (goal.goal.status.success()) {
             goal.status.setToSuccess()
         }
+        if (goal.goal.status.failed()) {
+            goal.status.setToFail(goal.goal.status.info)
+        }
     } else if (goal.subgoals.all { it.status.success() }) {
         goal.status.setToSuccess()
+    } else if (goal.subgoals.any { it.status.failed() }) {
+        goal.status.setToFail("Some subgoal failed")
     }
 }
 
-class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<ModelState, Action>) : BasicAgent() {
+class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<ModelState, Action>, private val random: Random) : BasicAgent() {
 
     lateinit var policy: Policy<StateWithGoalProgress<ModelState>, Action>
 
+    lateinit var mdp: MDP<StateWithGoalProgress<ModelState>, Action>
+
     fun trainWith(alorithm: RLAlgorithm, timeout: Long): RLAgent<ModelState, Action> {
-        policy = alorithm.train(model, goal, timeout)
+        mdp = createRlMDP(model, goal)
+        policy = alorithm.train(mdp, timeout)
         return this
     }
 
@@ -87,7 +117,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
     }
 
     override fun setGoal(g: GoalStructure?): RLAgent<ModelState, Action> {
-        super.setGoal(g)
+        goal = g
         return this
     }
 
@@ -97,13 +127,26 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
         try {
             state.updateState()
             val modelState = model.convertState(state)
+            if (model.isTerminal(modelState)) {
+                handleTerminalState()
+                return
+            }
             val goalProgress = convert(goal) { it.status.success() }
             val action = policy.action(StateWithGoalProgress(goalProgress, modelState))
-            val proposal = model.executeAction(action.sample(Random), state)
+            val proposal = model.executeAction(action.sample(random), state)
             convert(goal) { it.goal.propose(proposal) }
             updateGoalStatus(goal)
         } finally {
             unlockEnvironment()
         }
+    }
+
+    private fun handleTerminalState() {
+        convert(goal) {
+            if (!it.status.success()) {
+                it.status.setToFail("In terminal state according to model")
+            }
+        }
+        updateGoalStatus(goal)
     }
 }

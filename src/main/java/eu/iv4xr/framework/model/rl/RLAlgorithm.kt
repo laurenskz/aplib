@@ -13,6 +13,14 @@ interface MDPGoal {
     fun reward(): Double
 }
 
+fun basicGoal(reward: Double, predicate: (Any) -> Boolean): MDPGoal {
+    return object : MDPGoal {
+        override fun completed(proposal: Any) = predicate(proposal)
+
+        override fun reward() = reward
+    }
+}
+
 class WrappedMDPGoal(private val goal: GoalStructure.PrimitiveGoal) : MDPGoal {
     override fun completed(proposal: Any): Boolean {
         return goal.goal.wouldBeSolvedBy(proposal)
@@ -23,5 +31,8 @@ class WrappedMDPGoal(private val goal: GoalStructure.PrimitiveGoal) : MDPGoal {
 }
 
 fun <ModelState : Identifiable, Action : Identifiable> RLAlgorithm.train(model: ProbabilisticModel<ModelState, Action>, goal: GoalStructure, timeout: Long): Policy<StateWithGoalProgress<ModelState>, Action> {
-    return train(RLMDP(model, convert(goal) { WrappedMDPGoal(it) }), timeout)
+    return train(createRlMDP(model, goal), timeout)
 }
+
+fun <Action : Identifiable, ModelState : Identifiable> createRlMDP(model: ProbabilisticModel<ModelState, Action>, goal: GoalStructure) =
+        RLMDP(model, convert(goal) { WrappedMDPGoal(it) })

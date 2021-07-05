@@ -4,6 +4,7 @@ import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.rl.Identifiable
 import nl.uu.cs.aplib.mainConcepts.Environment
 import nl.uu.cs.aplib.mainConcepts.SimpleState
+import java.lang.IllegalArgumentException
 
 
 /**
@@ -45,3 +46,5 @@ interface ProbabilisticModel<ModelState : Identifiable, ModelAction : Identifiab
      */
     fun proposal(current: ModelState, action: ModelAction, result: ModelState): Distribution<out Any>
 }
+
+fun  terminal(): Nothing = throw IllegalArgumentException("Terminal states cannot transition")
