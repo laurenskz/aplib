@@ -1,7 +1,7 @@
 package eu.iv4xr.framework.model.rl
 
 import eu.iv4xr.framework.model.ProbabilisticModel
-import nl.uu.cs.aplib.agents.State
+import eu.iv4xr.framework.utils.convert
 import nl.uu.cs.aplib.mainConcepts.GoalStructure
 
 interface RLAlgorithm {
