@@ -3,7 +3,6 @@ package eu.iv4xr.framework.model.rl
 import eu.iv4xr.framework.model.ProbabilisticModel
 import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.distribution.always
-import eu.iv4xr.framework.model.distribution.expectedValue
 import eu.iv4xr.framework.model.distribution.flip
 import eu.iv4xr.framework.model.rl.RLMDPTest.TestAction.*
 import eu.iv4xr.framework.model.rl.RLMDPTest.TestModelState.*
@@ -22,7 +21,7 @@ import kotlin.random.Random
 internal class RLMDPTest {
 
     class TestState : SimpleState() {
-        var state: String = "One"
+        var state: String = ""
 
         override fun env() = super.env() as TestEnv
 
@@ -162,16 +161,67 @@ internal class RLMDPTest {
         val testEnv = TestEnv(Random(3020))
         val state1 = TestState()
         state1.setEnvironment(testEnv)
-        val g = GoalStructure(SEQ, goal("Get value 3").toSolve<Int> { it == 3 }.lift().maxbudget(3.0), goal("Get value 9").toSolve<Int> { it == 9 }.lift())
+        val get3 = goal("Get value 3").toSolve<Int> { it == 3 }.lift().maxbudget(3.0)
+        val get9 = goal("Get value 9").toSolve<Int> { it == 9 }.lift()
+        val g = GoalStructure(SEQ, get3, get9)
         val agent = RLAgent(TestModel(), Random(134))
                 .setGoal(g)
                 .attachState(state1)
                 .trainWith(GreedyAlg(0.97, 6), 10)
-        while (g.status.inProgress()) {
-            println(testEnv.state)
-            agent.update()
-        }
-        g.printGoalStructureStatus()
+        assertEquals("", state1.state)
+        state1.updateState()
+
+        assertEquals("One", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("One", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("Two", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("One", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("Two", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("One", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("Two", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("One", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("One", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("One", state1.state)
+        agent.update()
+        assertTrue(g.status.inProgress())
+
+        assertEquals("Two", state1.state)
+        agent.update()
+
+        assertEquals("Pit", state1.state)
+        assertFalse(g.status.inProgress())
+
+        assertTrue(get3.status.success())
+        assertTrue(get9.status.failed())
+        assertEquals("In terminal state according to model", get9.status.info)
+        assertTrue(g.status.failed())
+        assertEquals("Some subgoal failed", g.status.info)
     }
 
     @Test

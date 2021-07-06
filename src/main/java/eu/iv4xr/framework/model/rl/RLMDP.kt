@@ -21,6 +21,22 @@ fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.stateValue(
     }
 }
 
+fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.stateValue(state: State, policy: Policy<State, Action>, discountFactor: Double, depth: Int): Double {
+    if (isTerminal(state)) return 0.0
+    return policy.action(state).expectedValue { action ->
+        qValue(state, policy, action, discountFactor, depth)
+
+    }
+}
+
+fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.qValue(state: State, policy: Policy<State, Action>, action: Action, discountFactor: Double, depth: Int): Double {
+    if (depth == 0) return expectedReward(state, action)
+    return expectedReward(state, action) + discountFactor * transition(state, action).expectedValue { newState ->
+        stateValue(newState, policy, discountFactor, depth - 1)
+    }
+}
+
+
 fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.qValue(state: State, action: Action, discountFactor: Double, depth: Int): Double {
     if (depth == 0) return expectedReward(state, action)
     return expectedReward(state, action) + discountFactor * transition(state, action).expectedValue { newState ->
