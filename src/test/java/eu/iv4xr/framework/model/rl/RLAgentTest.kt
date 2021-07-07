@@ -129,7 +129,7 @@ internal class RLAgentTest {
         val agent = RLAgent(TestModel(), Random(134))
                 .setGoal(g)
                 .attachState(state1)
-                .trainWith(GreedyAlg(0.97, 6), 10)
+                .trainWith(GreedyAlg(0.97, 6))
         assertEquals("", state1.state)
         state1.updateState()
 

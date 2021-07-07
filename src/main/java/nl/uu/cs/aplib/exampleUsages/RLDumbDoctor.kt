@@ -12,6 +12,8 @@ import eu.iv4xr.framework.model.rl.RLAgent
 import eu.iv4xr.framework.model.rl.StateWithGoalProgress
 import eu.iv4xr.framework.model.rl.algorithms.GreedyAlg
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlg
+import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
+import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms.qLearning
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapEnum
 import eu.iv4xr.framework.model.rl.burlapadaptors.ImmutableReflectionBasedState
 import nl.uu.cs.aplib.AplibEDSL.goal
@@ -78,13 +80,10 @@ fun main() {
     val doctorAgent = RLAgent(dumbDoctorModel, Random(123))
             .attachState(belief)
             .setGoal(topgoal)
-            .trainWith(BurlapAlg<StateWithGoalProgress<DumbDoctorState>, DumbDoctorAction>(Random(12)) {
-                val qLearning = QLearning(domain, 0.9, SimpleHashableStateFactory(), 0.0, 0.1)
-                (0 until 100).forEach {
-                    qLearning.runLearningEpisode(SimulatedEnvironment(model, stateGenerator))
-                }
-                GreedyQPolicy(qLearning)
-            }, 10)
+            .trainWith(qLearning(0.9, 0.1, 0.0, 100))
+    (0 .. 5).forEach{
+        println(doctorAgent.policy.action(StateWithGoalProgress(listOf(false), DumbDoctorState(it))).supportWithDensities())
+    }
 //            .trainWith(GreedyAlg(0.9, 5), 10)
 
     // run the doctor-agent until it solves its goal:

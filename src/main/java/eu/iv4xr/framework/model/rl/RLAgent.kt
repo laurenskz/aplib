@@ -14,9 +14,9 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
 
     lateinit var mdp: MDP<StateWithGoalProgress<ModelState>, Action>
 
-    fun trainWith(alorithm: RLAlgorithm<StateWithGoalProgress<ModelState>, Action>, timeout: Long): RLAgent<ModelState, Action> {
+    fun trainWith(alorithm: RLAlgorithm<StateWithGoalProgress<ModelState>, Action>): RLAgent<ModelState, Action> {
         mdp = createRlMDP(model, goal)
-        policy = alorithm.train(mdp, timeout)
+        policy = alorithm.train(mdp)
         return this
     }
 

@@ -5,7 +5,7 @@ import eu.iv4xr.framework.utils.convert
 import nl.uu.cs.aplib.mainConcepts.GoalStructure
 
 interface RLAlgorithm<S : Identifiable, A : Identifiable> {
-    fun train(mdp: MDP<S, A>, timeout: Long): Policy<S, A>
+    fun train(mdp: MDP<S, A>): Policy<S, A>
 }
 
 interface MDPGoal {

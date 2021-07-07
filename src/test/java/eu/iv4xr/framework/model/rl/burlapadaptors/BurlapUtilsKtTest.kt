@@ -33,6 +33,7 @@ internal class BurlapUtilsKtTest {
         val values = stateWithGoalProgress.variableKeys().map {
             stateWithGoalProgress.get(it)
         }
-        println(values)
+        assertEquals(values[0], listOf(true))
+        assertEquals(values[1], "Hi!")
     }
 }
