@@ -1,12 +1,19 @@
 package nl.uu.cs.aplib.exampleUsages
 
+import burlap.behavior.policy.GreedyQPolicy
+import burlap.behavior.singleagent.learning.tdmethods.QLearning
+import burlap.mdp.singleagent.environment.SimulatedEnvironment
+import burlap.statehashing.simple.SimpleHashableStateFactory
 import eu.iv4xr.framework.model.ProbabilisticModel
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.RLAgent
-import eu.iv4xr.framework.model.rl.algorithms.Greedy
+import eu.iv4xr.framework.model.rl.StateWithGoalProgress
 import eu.iv4xr.framework.model.rl.algorithms.GreedyAlg
+import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlg
+import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapEnum
+import eu.iv4xr.framework.model.rl.burlapadaptors.ImmutableReflectionBasedState
 import nl.uu.cs.aplib.AplibEDSL.goal
 import nl.uu.cs.aplib.environments.ConsoleEnvironment
 import nl.uu.cs.aplib.exampleUsages.DumbDoctor.DoctorBelief
@@ -14,10 +21,12 @@ import nl.uu.cs.aplib.exampleUsages.DumbDoctorAction.*
 import nl.uu.cs.aplib.mainConcepts.SimpleState
 import kotlin.random.Random
 
-data class DumbDoctorState(val happines: Int) : Identifiable
+data class DumbDoctorState(val happiness: Int) : Identifiable, ImmutableReflectionBasedState
 
-enum class DumbDoctorAction : Identifiable {
-    OPENING, QUESTION, SMART_QUESTION
+enum class DumbDoctorAction : Identifiable, BurlapEnum<DumbDoctorAction> {
+    OPENING, QUESTION, SMART_QUESTION;
+
+    override fun get() = this
 }
 
 class DumbDoctorModel : ProbabilisticModel<DumbDoctorState, DumbDoctorAction> {
@@ -43,17 +52,20 @@ class DumbDoctorModel : ProbabilisticModel<DumbDoctorState, DumbDoctorAction> {
         return DumbDoctorState(state.patientHappiness)
     }
 
-    override fun isTerminal(state: DumbDoctorState) = false
+    override fun isTerminal(state: DumbDoctorState) = state.happiness >= 5
 
     override fun transition(current: DumbDoctorState, action: DumbDoctorAction) = when (action) {
-        OPENING -> if (current.happines == 0) DumbDoctorState(1) else current
-        QUESTION -> if (current.happines > 0) DumbDoctorState(current.happines + 1) else current
-        SMART_QUESTION -> if (current.happines > 0) DumbDoctorState(current.happines + 1) else current
+        OPENING -> if (current.happiness == 0) DumbDoctorState(1) else current
+        QUESTION -> if (current.happiness > 0) DumbDoctorState(current.happiness + 1) else current
+        SMART_QUESTION -> if (current.happiness > 0) DumbDoctorState(current.happiness + 1) else current
     }.let { always(it) }
 
     override fun proposal(current: DumbDoctorState, action: DumbDoctorAction, result: DumbDoctorState): Distribution<out Any> {
-        return always(result.happines)
+        return always(result.happiness)
     }
+
+    override fun possibleActions() = DumbDoctorAction.values().asSequence()
+    override fun initialState() = always(DumbDoctorState(0))
 }
 
 fun main() {
@@ -62,11 +74,18 @@ fun main() {
     topgoal.maxbudget(10.0)
     val belief = DoctorBelief()
     belief.setEnvironment(ConsoleEnvironment())
-    val model = DumbDoctorModel()
-    val doctorAgent = RLAgent(model, Random(123))
+    val dumbDoctorModel = DumbDoctorModel()
+    val doctorAgent = RLAgent(dumbDoctorModel, Random(123))
             .attachState(belief)
             .setGoal(topgoal)
-            .trainWith(GreedyAlg(0.9, 5), 10)
+            .trainWith(BurlapAlg<StateWithGoalProgress<DumbDoctorState>, DumbDoctorAction>(Random(12)) {
+                val qLearning = QLearning(domain, 0.9, SimpleHashableStateFactory(), 0.0, 0.1)
+                (0 until 100).forEach {
+                    qLearning.runLearningEpisode(SimulatedEnvironment(model, stateGenerator))
+                }
+                GreedyQPolicy(qLearning)
+            }, 10)
+//            .trainWith(GreedyAlg(0.9, 5), 10)
 
     // run the doctor-agent until it solves its goal:
     while (topgoal.status.inProgress()) {

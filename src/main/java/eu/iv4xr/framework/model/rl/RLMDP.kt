@@ -36,6 +36,11 @@ class RLMDP<State : Identifiable, Action : Identifiable>(private val model: Prob
                 goal.reward().takeIf { !current.progress[index] && newState.progress[index] }
             }.sum()
     )
+
+    override fun allPossibleActions() = model.possibleActions()
+    override fun initialState(): Distribution<StateWithGoalProgress<State>> {
+        return model.initialState().map { StateWithGoalProgress(goals.map { false }, it) }
+    }
 }
 
 

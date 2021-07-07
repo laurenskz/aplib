@@ -1,5 +1,8 @@
 package eu.iv4xr.framework.model.rl
 
+import burlap.mdp.core.action.Action
+import burlap.mdp.core.state.State
+
 interface Identifiable {
 }
 
@@ -14,6 +17,10 @@ interface Indexable : Identifiable {
      */
     fun index(): Int
 }
+
+
+interface BurlapState : State,Identifiable
+interface BurlapAction : Action,Identifiable
 
 interface FeatureVector : Identifiable {
     /**

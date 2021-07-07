@@ -4,8 +4,8 @@ import eu.iv4xr.framework.model.ProbabilisticModel
 import eu.iv4xr.framework.utils.convert
 import nl.uu.cs.aplib.mainConcepts.GoalStructure
 
-interface RLAlgorithm {
-    fun <S : Identifiable, A : Identifiable> train(mdp: MDP<S, A>, timeout: Long): Policy<S, A>
+interface RLAlgorithm<S : Identifiable, A : Identifiable> {
+    fun train(mdp: MDP<S, A>, timeout: Long): Policy<S, A>
 }
 
 interface MDPGoal {
@@ -30,9 +30,6 @@ class WrappedMDPGoal(private val goal: GoalStructure.PrimitiveGoal) : MDPGoal {
 
 }
 
-fun <ModelState : Identifiable, Action : Identifiable> RLAlgorithm.train(model: ProbabilisticModel<ModelState, Action>, goal: GoalStructure, timeout: Long): Policy<StateWithGoalProgress<ModelState>, Action> {
-    return train(createRlMDP(model, goal), timeout)
-}
 
 fun <Action : Identifiable, ModelState : Identifiable> createRlMDP(model: ProbabilisticModel<ModelState, Action>, goal: GoalStructure) =
         RLMDP(model, convert(goal) { WrappedMDPGoal(it) })

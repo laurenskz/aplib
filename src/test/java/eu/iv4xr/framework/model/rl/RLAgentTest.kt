@@ -1,6 +1,7 @@
 package eu.iv4xr.framework.model.rl
 
 import eu.iv4xr.framework.model.ProbabilisticModel
+import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.model.distribution.flip
@@ -113,6 +114,8 @@ internal class RLAgentTest {
             PIT -> always(3)
         }
 
+        override fun possibleActions() = TestAction.values().asSequence()
+        override fun initialState() = Distributions.uniform(ONE, TWO)
     }
 
     @Test

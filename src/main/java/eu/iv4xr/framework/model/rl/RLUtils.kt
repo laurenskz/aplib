@@ -1,8 +1,9 @@
 package eu.iv4xr.framework.model.rl
 
 import eu.iv4xr.framework.model.distribution.expectedValue
+import eu.iv4xr.framework.model.rl.burlapadaptors.ImmutableReflectionBasedState
 
-data class StateWithGoalProgress<State : Identifiable>(val progress: List<Boolean>, val state: State) : Identifiable
+data class StateWithGoalProgress<State : Identifiable>(val progress: List<Boolean>, val state: State) : Identifiable, ImmutableReflectionBasedState
 
 
 fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.stateValue(state: State, discountFactor: Double, depth: Int): Double {

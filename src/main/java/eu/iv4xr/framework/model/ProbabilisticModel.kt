@@ -2,6 +2,7 @@ package eu.iv4xr.framework.model
 
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.rl.Identifiable
+import nl.uu.cs.aplib.mainConcepts.Action
 import nl.uu.cs.aplib.mainConcepts.Environment
 import nl.uu.cs.aplib.mainConcepts.SimpleState
 import java.lang.IllegalArgumentException
@@ -45,6 +46,16 @@ interface ProbabilisticModel<ModelState : Identifiable, ModelAction : Identifiab
      * The proposal that is returned after executing a specific action
      */
     fun proposal(current: ModelState, action: ModelAction, result: ModelState): Distribution<out Any>
+
+    /**
+     * Returns all possible actions
+     */
+    fun possibleActions(): Sequence<ModelAction>
+
+    /**
+     * Distribution of possible initial states
+     */
+    fun initialState(): Distribution<ModelState>
 }
 
-fun  terminal(): Nothing = throw IllegalArgumentException("Terminal states cannot transition")
+fun terminal(): Nothing = throw IllegalArgumentException("Terminal states cannot transition")

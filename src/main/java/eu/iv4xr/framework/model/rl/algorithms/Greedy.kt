@@ -20,8 +20,8 @@ class Greedy<ModelState : Identifiable, Action : Identifiable>(private val rlmdp
     }
 }
 
-class GreedyAlg(private val discountFactor: Double, private val depth: Int) : RLAlgorithm {
-    override fun <S : Identifiable, A : Identifiable> train(mdp: MDP<S, A>, timeout: Long): Policy<S, A> {
+class GreedyAlg<S : Identifiable, A : Identifiable>(private val discountFactor: Double, private val depth: Int) : RLAlgorithm<S, A> {
+    override fun train(mdp: MDP<S, A>, timeout: Long): Policy<S, A> {
         return Greedy(mdp, discountFactor, depth)
     }
 }

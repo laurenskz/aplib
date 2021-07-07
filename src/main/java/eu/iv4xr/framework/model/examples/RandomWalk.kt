@@ -1,22 +1,29 @@
 package eu.iv4xr.framework.model.examples
 
+import burlap.mdp.core.state.State
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.model.examples.RandomWalkAction.*
-import eu.iv4xr.framework.model.rl.Identifiable
-import eu.iv4xr.framework.model.rl.MDP
-import eu.iv4xr.framework.model.rl.Policy
+import eu.iv4xr.framework.model.rl.*
+import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapEnum
+import eu.iv4xr.framework.model.rl.burlapadaptors.ImmutableReflectionBasedState
+import eu.iv4xr.framework.model.rl.burlapadaptors.ReflectionBasedState
+import java.lang.reflect.Field
+import kotlin.math.abs
 import kotlin.math.exp
 
-data class RandomWalkState(val value: Double) : Identifiable
+data class RandomWalkState(val value: Double) : ImmutableReflectionBasedState
 
 /**
  * We can hold a stock or sell it
  */
-enum class RandomWalkAction : Identifiable {
-    HOLD, SELL
+enum class RandomWalkAction : BurlapEnum<RandomWalkAction> {
+    HOLD, SELL;
+
+    override fun get() = this
 }
+
 
 /**
  * Illustrates an example of a random walk. There is a hypothesis that stock prices follow a random walk
@@ -28,17 +35,21 @@ class RandomWalk(private val offset: Distribution<Double>) : MDP<RandomWalkState
 
     override fun possibleActions(state: RandomWalkState) = values().asSequence()
 
-    override fun isTerminal(state: RandomWalkState) = false
+    override fun isTerminal(state: RandomWalkState) = abs(state.value) > 1
 
     override fun transition(current: RandomWalkState, action: RandomWalkAction) = when (action) {
         HOLD -> offset.map { RandomWalkState(current.value + it) }
         SELL -> always(RandomWalkState(0.0))
     }
 
+    override fun initialState() = always(RandomWalkState(0.0))
+
     override fun reward(current: RandomWalkState, action: RandomWalkAction, newState: RandomWalkState) = when (action) {
         HOLD -> always(0.0)
         SELL -> always(current.value)
     }
+
+    override fun allPossibleActions() = RandomWalkAction.values().asSequence()
 }
 
 /**

@@ -1,5 +1,6 @@
 package eu.iv4xr.framework.model.rl
 
+import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.model.rl.RLUtilsTest.SlotMachine.*
@@ -51,6 +52,9 @@ internal class RLUtilsTest {
             GOOD -> Distributions.uniform(1.0, 0.5)
             DONE -> terminal()
         }.takeIf { newState == DONE } ?: always(0.0)
+
+        override fun allPossibleActions() = SlotMachineAction.values().asSequence()
+        override fun initialState() = Distributions.uniform(BAD, MEDIUM, GOOD)
     }
 
     @Test

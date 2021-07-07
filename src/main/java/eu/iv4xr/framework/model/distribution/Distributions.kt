@@ -44,6 +44,20 @@ object Distributions {
     }
 
     /**
+     * Discrete distribution based on values with associated probability
+     */
+    fun <T> discrete(elements: List<Pair<T, Double>>): Distribution<T> {
+        return DiscreteDistribution(elements.toMap())
+    }
+
+    /**
+     * Discrete distribution based on values with associated probability
+     */
+    fun <T> discrete(elements: Map<T, Double>): Distribution<T> {
+        return DiscreteDistribution(elements)
+    }
+
+    /**
      * Bernoulli distribution with probability p
      */
     fun bernoulli(p: Double): Distribution<Boolean> {
