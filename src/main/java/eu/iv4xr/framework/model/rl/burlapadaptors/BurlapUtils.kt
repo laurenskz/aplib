@@ -25,9 +25,9 @@ interface BurlapEnum<E : Enum<E>> : BurlapAction {
 interface ReflectionBasedState : BurlapState {
     override fun variableKeys(): MutableList<Any> {
         return this::class.memberProperties.flatMap { property ->
-            val returnType = property.returnType.classifier
-            if (returnType is KClass<*> && BurlapState::class.isSuperclassOf(returnType)) {
-                BurlapState::class.cast(property.call(this)).variableKeys().map {
+            val child = property.call(this)
+            if (child is BurlapState) {
+                child.variableKeys().map {
                     { bab -> (BurlapState::get)(property.call(bab) as BurlapState, it) }
                 }
             } else listOf { bab: Any ->
