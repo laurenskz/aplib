@@ -45,7 +45,9 @@ interface DataClassAction : BurlapAction {
     }
 }
 
-
+/**
+ * Remain access to q values
+ */
 class GreedyQPolicyWithQValues(qProvider: QProvider) : GreedyQPolicy(qProvider), QProvider by qProvider
 
 /**
@@ -124,10 +126,10 @@ interface ReflectionBasedState : BurlapState {
             val child = property.call(this)
             if (child is BurlapState) {
                 child.variableKeys().map {
-                    { bab -> (BurlapState::get)(property.call(bab) as BurlapState, it) }
+                    { obj -> (BurlapState::get)(property.call(obj) as BurlapState, it) }
                 }
-            } else listOf { bab: Any ->
-                property.call(bab)
+            } else listOf { obj: Any ->
+                property.call(obj)
             }
         }.toMutableList()
     }

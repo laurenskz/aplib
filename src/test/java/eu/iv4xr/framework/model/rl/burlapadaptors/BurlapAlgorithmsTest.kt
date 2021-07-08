@@ -11,7 +11,6 @@ import nl.uu.cs.aplib.exampleUsages.DumbDoctorState
 import org.junit.Assert
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
-import kotlin.test.assertEquals
 
 internal class BurlapAlgorithmsTest {
 
