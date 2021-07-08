@@ -11,11 +11,14 @@ import kotlin.random.Random
 
 object BurlapAlgorithms {
 
-    fun <S : BurlapState, A : BurlapAction> qLearning(discountFactor: Double, learningRate: Double, qInit: Double, numEpisodes: Int) = BurlapAlg<S, A>(Random(12)) {
+    /**
+     * Q learning, the most basic ALG
+     */
+    fun <S : BurlapState, A : BurlapAction> qLearning(discountFactor: Double, learningRate: Double, qInit: Double, numEpisodes: Int, random: Random) = BurlapAlg<S, A>(random) {
         val qLearning = QLearning(domain, discountFactor, SimpleHashableStateFactory(), qInit, learningRate)
         repeat(numEpisodes) {
             qLearning.runLearningEpisode(SimulatedEnvironment(model, stateGenerator))
         }
-        GreedyQPolicy(qLearning)
+        GreedyQPolicyWithQValues(qLearning)
     }
 }

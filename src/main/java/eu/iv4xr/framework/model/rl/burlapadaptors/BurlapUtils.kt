@@ -1,6 +1,8 @@
 package eu.iv4xr.framework.model.rl.burlapadaptors
 
+import burlap.behavior.policy.GreedyQPolicy
 import burlap.behavior.policy.Policy
+import burlap.behavior.valuefunction.QProvider
 import burlap.mdp.auxiliary.StateGenerator
 import burlap.mdp.core.action.Action
 import burlap.mdp.core.action.ActionType
@@ -13,15 +15,12 @@ import eu.iv4xr.framework.model.rl.BurlapAction
 import eu.iv4xr.framework.model.rl.BurlapState
 import eu.iv4xr.framework.model.rl.MDP
 import eu.iv4xr.framework.model.rl.RLAlgorithm
-import java.lang.reflect.Field
 import kotlin.random.Random
-import kotlin.reflect.KCallable
-import kotlin.reflect.KClass
-import kotlin.reflect.KProperty
-import kotlin.reflect.cast
-import kotlin.reflect.full.isSuperclassOf
 import kotlin.reflect.full.memberProperties
 
+/**
+ * Turn any ENUM into a burlap action
+ */
 interface BurlapEnum<E : Enum<E>> : BurlapAction {
     fun get(): E
     override fun actionName(): String {
@@ -33,44 +32,78 @@ interface BurlapEnum<E : Enum<E>> : BurlapAction {
     }
 }
 
+/**
+ * Turn any data class into an action
+ */
+interface DataClassAction : BurlapAction {
+    override fun actionName(): String {
+        return this.toString()
+    }
+
+    override fun copy(): DataClassAction {
+        return this
+    }
+}
+
+
+class GreedyQPolicyWithQValues(qProvider: QProvider) : GreedyQPolicy(qProvider), QProvider by qProvider
+
+/**
+ * BurlapPolicy to internal policy
+ */
 class BurlapPolicy<S : BurlapState, A : BurlapAction>(val policy: Policy, val mdp: MDP<S, A>) : eu.iv4xr.framework.model.rl.Policy<S, A> {
     override fun action(state: S) = Distributions.discrete(
             mdp.possibleActions(state).associateWith { policy.actionProb(state, it) }
     )
 }
-fun <S : BurlapState, A : BurlapAction> MDP<S, A>.stateGenerator(random: Random) = object : StateGenerator {
-    override fun generateState(): State {
-        return initialState().sample(random)
-    }
-}
 
+/**
+ * Create stategenerator  from MDP
+ */
+fun <S : BurlapState, A : BurlapAction> MDP<S, A>.stateGenerator(random: Random) = StateGenerator { initialState().sample(random) }
+
+/**
+ * Get all actionTypes of MDP
+ */
 fun <S : BurlapState, A : BurlapAction> MDP<S, A>.actionTypes() = object : ActionType {
     override fun typeName() = "Actions"
 
     override fun associatedAction(name: String) = allPossibleActions().first { it.actionName() == name }
 
+    @Suppress("UNCHECKED_CAST")
     override fun allApplicableActions(p0: State) = possibleActions(p0 as S).toList()
 }
 
 
+/**
+ * Create sample model from MDP
+ */
 fun <S : BurlapState, A : BurlapAction> MDP<S, A>.toBurlapModel(random: Random): SampleModel {
 
     return object : SampleModel {
+        @Suppress("UNCHECKED_CAST")
         override fun sample(state: State, action: Action): EnvironmentOutcome {
             val newState = transition(state as S, action as A).sample(random)
-            val reward = reward(state as S, action as A, newState).sample(random)
+            val reward = reward(state, action, newState).sample(random)
             return EnvironmentOutcome(state, action, newState, reward, isTerminal(newState))
 
         }
 
+        @Suppress("UNCHECKED_CAST")
         override fun terminal(p0: State): Boolean {
             return isTerminal(p0 as S)
         }
     }
 }
 
+/**
+ * Utils class for use in lambda
+ */
 data class BurlapComponents<S : BurlapState, A : BurlapAction>(val domain: SADomain, val stateGenerator: StateGenerator, val model: SampleModel, val mdp: MDP<S, A>)
 
+/**
+ * Convenient way to integrate BurlapAlgorithms into our framework
+ */
 class BurlapAlg<S : BurlapState, A : BurlapAction>(private val random: Random, private val alg: BurlapComponents<S, A>.() -> Policy) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): eu.iv4xr.framework.model.rl.Policy<S, A> {
         val domain = SADomain()
@@ -82,6 +115,9 @@ class BurlapAlg<S : BurlapState, A : BurlapAction>(private val random: Random, p
     }
 }
 
+/**
+ * Enumerates all memberproperties of a class
+ */
 interface ReflectionBasedState : BurlapState {
     override fun variableKeys(): MutableList<Any> {
         return this::class.memberProperties.flatMap { property ->
@@ -96,6 +132,7 @@ interface ReflectionBasedState : BurlapState {
         }.toMutableList()
     }
 
+    @Suppress("UNCHECKED_CAST")
     override fun get(p0: Any?): Any? {
         return (p0 as (Any) -> Any)(this)
     }

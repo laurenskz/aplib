@@ -12,7 +12,7 @@ import kotlin.math.PI
 internal class RLMDPTest {
 
     val mdp: RLMDP<RLAgentTest.TestModelState, RLAgentTest.TestAction> = RLMDP(RLAgentTest.TestModel(), listOf(
-            basicGoal(1.0) { it == 3 }
+            basicGoal(1.0) { it: Int -> it == 3 }
     ))
 
     @Test

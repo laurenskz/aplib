@@ -13,9 +13,12 @@ interface MDPGoal {
     fun reward(): Double
 }
 
-fun basicGoal(reward: Double, predicate: (Any) -> Boolean): MDPGoal {
+inline fun <reified T> basicGoal(reward: Double, crossinline predicate: (T) -> Boolean): MDPGoal {
     return object : MDPGoal {
-        override fun completed(proposal: Any) = predicate(proposal)
+        override fun completed(proposal: Any) = when (proposal) {
+            is T -> predicate(proposal)
+            else -> false
+        }
 
         override fun reward() = reward
     }

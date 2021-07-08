@@ -16,6 +16,7 @@ import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms.qLearning
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapEnum
 import eu.iv4xr.framework.model.rl.burlapadaptors.ImmutableReflectionBasedState
+import eu.iv4xr.framework.model.rl.qValue
 import nl.uu.cs.aplib.AplibEDSL.goal
 import nl.uu.cs.aplib.environments.ConsoleEnvironment
 import nl.uu.cs.aplib.exampleUsages.DumbDoctor.DoctorBelief
@@ -32,7 +33,7 @@ enum class DumbDoctorAction : Identifiable, BurlapEnum<DumbDoctorAction> {
 }
 
 class DumbDoctorModel : ProbabilisticModel<DumbDoctorState, DumbDoctorAction> {
-    override fun possibleStates() = generateSequence(0) { it + 1 }.map(::DumbDoctorState)
+    override fun possibleStates() = (0..5).map(::DumbDoctorState).asSequence()
 
 
     override fun possibleActions(state: DumbDoctorState) = values().asSequence()
@@ -80,11 +81,16 @@ fun main() {
     val doctorAgent = RLAgent(dumbDoctorModel, Random(123))
             .attachState(belief)
             .setGoal(topgoal)
-            .trainWith(qLearning(0.9, 0.1, 0.0, 100))
-    (0 .. 5).forEach{
-        println(doctorAgent.policy.action(StateWithGoalProgress(listOf(false), DumbDoctorState(it))).supportWithDensities())
-    }
+            .trainWith(qLearning(0.9, 0.1, 0.0, 10000, Random(1234)))
 //            .trainWith(GreedyAlg(0.9, 5), 10)
+    println("Printing from model")
+    doctorAgent.mdp.possibleStates().forEach { s ->
+        doctorAgent.mdp.possibleActions(s).forEach {
+            println("Model: $s,$it: ${doctorAgent.mdp.qValue(s, it, 0.9, 10)}")
+        }
+    }
+
+    println(doctorAgent.mdp.qValue(StateWithGoalProgress(listOf(false), DumbDoctorState(0)), OPENING, 0.9, 10))
 
     // run the doctor-agent until it solves its goal:
     while (topgoal.status.inProgress()) {
