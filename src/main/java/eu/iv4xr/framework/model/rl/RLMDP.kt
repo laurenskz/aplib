@@ -6,6 +6,11 @@ import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.utils.allPossibleGoalStates
 
 
+/**
+ * We extend the state of the model with the states of all the goals given, all goals are initially false
+ *
+ * Goals drive the reward function, but the reward is only given the first time the goal is achieved
+ */
 class RLMDP<State : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<State, Action>, private val goals: List<MDPGoal>) : MDP<StateWithGoalProgress<State>, Action> {
     override fun possibleStates() = model.possibleStates().flatMap { modelState -> allPossibleGoalStates(goals.size).map { StateWithGoalProgress(it, modelState) } }
 

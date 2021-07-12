@@ -35,4 +35,4 @@ class WrappedMDPGoal(private val goal: GoalStructure.PrimitiveGoal) : MDPGoal {
 
 
 fun <Action : Identifiable, ModelState : Identifiable> createRlMDP(model: ProbabilisticModel<ModelState, Action>, goal: GoalStructure) =
-        RLMDP(model, convert(goal) { WrappedMDPGoal(it) })
+        RLMDP(model, convert<MDPGoal>(goal) { WrappedMDPGoal(it) })

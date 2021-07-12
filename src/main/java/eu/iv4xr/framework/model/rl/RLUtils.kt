@@ -5,7 +5,9 @@ import eu.iv4xr.framework.model.rl.burlapadaptors.ImmutableReflectionBasedState
 
 data class StateWithGoalProgress<State : Identifiable>(val progress: List<Boolean>, val state: State) : Identifiable, ImmutableReflectionBasedState
 
-
+/**
+ * Compute the value of a state for an optimal policy
+ */
 fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.stateValue(state: State, discountFactor: Double, depth: Int): Double {
     if (isTerminal(state)) return 0.0
     return possibleActions(state).maxOf { action ->
@@ -13,6 +15,9 @@ fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.stateValue(
     }
 }
 
+/**
+ * Compute the value of a state for the given policy
+ */
 fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.stateValue(state: State, policy: Policy<State, Action>, discountFactor: Double, depth: Int): Double {
     if (isTerminal(state)) return 0.0
     return policy.action(state).expectedValue { action ->
@@ -21,6 +26,9 @@ fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.stateValue(
     }
 }
 
+/**
+ * Compute the qValue of a state action pair for a specific policy
+ */
 fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.qValue(state: State, policy: Policy<State, Action>, action: Action, discountFactor: Double, depth: Int): Double {
     if (depth == 0) return expectedReward(state, action)
     return expectedReward(state, action) + discountFactor * transition(state, action).expectedValue { newState ->
@@ -28,7 +36,9 @@ fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.qValue(stat
     }
 }
 
-
+/**
+ * Compute the qValue for a state action pair for the optimal policy
+ */
 fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.qValue(state: State, action: Action, discountFactor: Double, depth: Int): Double {
     if (depth == 0) return expectedReward(state, action)
     return expectedReward(state, action) + discountFactor * transition(state, action).expectedValue { newState ->
@@ -36,6 +46,9 @@ fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.qValue(stat
     }
 }
 
+/**
+ * Expected reward by performing a specific action in a specific state
+ */
 fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.expectedReward(state: State, action: Action): Double {
     return transition(state, action).expectedValue { newState ->
         reward(state, action, newState).expectedValue()

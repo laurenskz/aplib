@@ -43,9 +43,13 @@ internal class ChainedDistributionTest {
 
     @Test
     fun filter() {
+        // This is actually a strange case, since the original distribution gives sun 0.35 and rain 0.15
+        // But we end up with sun or rain by a coin flip, since all other alternatives are removed we can only
+        // have one option in each branch, so by the form of the probabilistic model 0.5 0.5 is the correct answer
+        // as the result directly follows from the coin flip.
         val newWeather = weather.filter { it != "Cloudy" }
-        assertEquals(0.7, newWeather.score("Sun"))
-        assertEquals(0.3, newWeather.score("Rain"))
+        assertEquals(0.5, newWeather.score("Sun"))
+        assertEquals(0.5, newWeather.score("Rain"))
     }
 
     @Test
