@@ -8,12 +8,19 @@ import nl.uu.cs.aplib.mainConcepts.Environment.EnvOperation;
 
 public class FiveGameEnv extends Environment {
 
+    static class FiveGameConf {
+        int boardSize;
+        boolean[][] blocked;
+    }
+
+
     private FiveGame thegame;
 
     // variables for keeping track relevant part of FiveGame's state:
     int boardsize;
     SQUARE[][] board;
     Square_ lastmove;
+    FiveGameConf conf;
 
     public FiveGameEnv() {
         super();
@@ -23,7 +30,19 @@ public class FiveGameEnv extends Environment {
         thegame = g;
         board = g.getState();
         boardsize = g.boardsize;
+        conf = new FiveGameConf();
+        setConfiguration();
         return this;
+    }
+
+    private void setConfiguration() {
+        conf.boardSize = boardsize;
+        conf.blocked = new boolean[boardsize][boardsize];
+        for (int i = 0; i < boardsize; i++) {
+            for (int j = 0; j < boardsize; j++) {
+                conf.blocked[i][j] = board[i][j] == SQUARE.BLOCKED;
+            }
+        }
     }
 
     @Override
@@ -42,7 +61,7 @@ public class FiveGameEnv extends Environment {
     }
 
     public GAMESTATUS move(SQUARE ty, int x, int y) {
-        Object[] arg = { ty, (Integer) x, (Integer) y };
+        Object[] arg = {ty, (Integer) x, (Integer) y};
         var o = sendCommand("ANONYMOUS", null, "move", arg);
         return (GAMESTATUS) o;
     }
