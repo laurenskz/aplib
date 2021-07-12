@@ -9,8 +9,21 @@ import nl.uu.cs.aplib.mainConcepts.Environment.EnvOperation;
 public class FiveGameEnv extends Environment {
 
     static class FiveGameConf {
-        int boardSize;
-        boolean[][] blocked;
+        private int boardSize;
+        private int availableSpots;
+        private boolean[][] blocked;
+
+        public int getBoardSize() {
+            return boardSize;
+        }
+
+        public boolean[][] getBlocked() {
+            return blocked;
+        }
+
+        public int getAvailableSpots() {
+            return availableSpots;
+        }
     }
 
 
@@ -41,6 +54,9 @@ public class FiveGameEnv extends Environment {
         for (int i = 0; i < boardsize; i++) {
             for (int j = 0; j < boardsize; j++) {
                 conf.blocked[i][j] = board[i][j] == SQUARE.BLOCKED;
+                if (!conf.blocked[i][j]) {
+                    conf.availableSpots++;
+                }
             }
         }
     }
