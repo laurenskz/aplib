@@ -1,9 +1,8 @@
 package eu.iv4xr.framework.model
 
 import eu.iv4xr.framework.model.distribution.Distribution
+import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.rl.Identifiable
-import nl.uu.cs.aplib.mainConcepts.Action
-import nl.uu.cs.aplib.mainConcepts.Environment
 import nl.uu.cs.aplib.mainConcepts.SimpleState
 import java.lang.IllegalArgumentException
 
@@ -59,3 +58,23 @@ interface ProbabilisticModel<ModelState : Identifiable, ModelAction : Identifiab
 }
 
 fun terminal(): Nothing = throw IllegalArgumentException("Terminal states cannot transition")
+
+fun <S : Identifiable, A : Identifiable> ProbabilisticModel<S, A>.distinctStatesFrom(visited: MutableSet<S>, state: S) {
+    if (state in visited) return
+    visited.add(state)
+    if (isTerminal(state)) return
+    val newStates = possibleActions(state).flatMap { transition(state, it).support() }.distinct()
+    for (newState in newStates) {
+        distinctStatesFrom(visited, newState)
+    }
+}
+
+fun <S : Identifiable, A : Identifiable> ProbabilisticModel<S, A>.tree() {
+    initialState().chain { s ->
+        Distributions.uniform(possibleActions(s)).map { s to it }
+    }
+}
+
+fun <S : Identifiable, A : Identifiable> ProbabilisticModel<S, A>.distinctStates() = mutableSetOf<S>().also { visited ->
+    initialState().support().forEach { distinctStatesFrom(visited, it) }
+}

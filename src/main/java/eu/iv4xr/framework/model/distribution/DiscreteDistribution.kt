@@ -49,7 +49,7 @@ class DiscreteDistribution<T>(val values: Map<T, Double>, private val tolerance:
             }
             current += value.value
         }
-        throw IllegalStateException("No element could be sampled")
+        throw IllegalStateException("No element could be sampled, support = ${supportWithDensities()}")
     }
 
     /**

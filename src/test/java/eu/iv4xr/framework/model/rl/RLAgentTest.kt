@@ -17,6 +17,7 @@ import nl.uu.cs.aplib.mainConcepts.GoalStructure.GoalsCombinator.SEQ
 import nl.uu.cs.aplib.mainConcepts.SimpleState
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.lang.IllegalArgumentException
 import kotlin.random.Random
 
 internal class RLAgentTest {
@@ -64,7 +65,7 @@ internal class RLAgentTest {
     }
 
     enum class TestModelState : Identifiable {
-        ONE, TWO, TERMINAL, PIT
+        ONE, TWO, TERMINAL, PIT, EXCLUDED
     }
 
     enum class TestAction : Identifiable {
@@ -112,6 +113,7 @@ internal class RLAgentTest {
             TWO -> always(0)
             TERMINAL -> Distributions.discrete(3 to 0.5, 0 to 0.5)
             PIT -> always(3)
+            else -> throw IllegalArgumentException("State is ignored")
         }
 
         override fun possibleActions() = TestAction.values().asSequence()

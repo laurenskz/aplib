@@ -18,13 +18,20 @@ fun updateGoalStatus(goal: GoalStructure) {
         if (goal.goal.status.failed()) {
             goal.status.setToFail(goal.goal.status.info)
         }
+        if (goal.goal.status.inProgress()) {
+            goal.status.resetToInProgress()
+        }
     } else if (goal.subgoals.all { it.status.success() }) {
         goal.status.setToSuccess()
     } else if (goal.subgoals.any { it.status.failed() }) {
         goal.status.setToFail("Some subgoal failed")
+    } else if (goal.subgoals.any() { it.status.inProgress() }) {
+        goal.status.resetToInProgress()
     }
 }
 
-fun allPossibleGoalStates(count: Int): Sequence<List<Boolean>> = if (count == 0) sequenceOf(listOf()) else
-    allPossibleGoalStates(count - 1)
-            .flatMap { listOf(true cons it, false cons it) }
+fun allPossibleGoalStates(count: Int) = allPossible(count, listOf(true, false))
+
+fun <R> allPossible(count: Int, element: List<R>): Sequence<List<R>> = if (count == 0) sequenceOf(listOf()) else
+    allPossible(count - 1, element)
+            .flatMap { big -> element.map { small -> small cons big } }

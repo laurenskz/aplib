@@ -95,7 +95,7 @@ public class BasicAgent {
     /**
      * The current topgoal the agent has.
      */
-    protected GoalStructure goal;
+    public GoalStructure goal;
 
     /**
      * The last goal handled by this agent before it was detached.

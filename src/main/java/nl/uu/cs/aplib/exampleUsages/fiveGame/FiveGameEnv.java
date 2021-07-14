@@ -1,17 +1,37 @@
 package nl.uu.cs.aplib.exampleUsages.fiveGame;
 
+import kotlin.Pair;
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.GAMESTATUS;
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.SQUARE;
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.Square_;
 import nl.uu.cs.aplib.mainConcepts.Environment;
-import nl.uu.cs.aplib.mainConcepts.Environment.EnvOperation;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Predicate;
 
 public class FiveGameEnv extends Environment {
 
-    static class FiveGameConf {
-        private int boardSize;
+    public static class FiveGameConf {
+        private final int boardSize;
         private int availableSpots;
-        private boolean[][] blocked;
+        private final boolean[][] blocked;
+        private final List<Square_> spots;
+
+        public FiveGameConf(int size, Predicate<Pair<Integer, Integer>> predicate) {
+            this.boardSize = size;
+            this.blocked = new boolean[size][size];
+            this.spots = new ArrayList<>();
+            for (int j = 0; j < size; j++) {
+                for (int i = 0; i < size; i++) {
+                    blocked[i][j] = predicate.test(new Pair<>(i, j));
+                    if (!blocked[i][j]) {
+                        availableSpots++;
+                        spots.add(new Square_(SQUARE.EMPTY, i, j));
+                    }
+                }
+            }
+        }
 
         public int getBoardSize() {
             return boardSize;
@@ -24,10 +44,21 @@ public class FiveGameEnv extends Environment {
         public int getAvailableSpots() {
             return availableSpots;
         }
+
+        public List<Square_> getSpots() {
+            return spots;
+        }
+
+        public int spotPos(int x, int y) {
+            for (int i = 0; i < spots.size(); i++) {
+                if (x == spots.get(i).x && y == spots.get(i).y) return i;
+            }
+            throw new IllegalArgumentException("Not a spot:" + x + "," + y);
+        }
     }
 
 
-    private FiveGame thegame;
+    FiveGame thegame;
 
     // variables for keeping track relevant part of FiveGame's state:
     int boardsize;
@@ -43,22 +74,13 @@ public class FiveGameEnv extends Environment {
         thegame = g;
         board = g.getState();
         boardsize = g.boardsize;
-        conf = new FiveGameConf();
         setConfiguration();
         return this;
     }
 
     private void setConfiguration() {
-        conf.boardSize = boardsize;
-        conf.blocked = new boolean[boardsize][boardsize];
-        for (int i = 0; i < boardsize; i++) {
-            for (int j = 0; j < boardsize; j++) {
-                conf.blocked[i][j] = board[i][j] == SQUARE.BLOCKED;
-                if (!conf.blocked[i][j]) {
-                    conf.availableSpots++;
-                }
-            }
-        }
+        conf = new FiveGameConf(boardsize, pair -> board[pair.getFirst()][pair.getSecond()] == SQUARE.BLOCKED);
+
     }
 
     @Override
@@ -82,4 +104,8 @@ public class FiveGameEnv extends Environment {
         return (GAMESTATUS) o;
     }
 
+    @Override
+    public String toString() {
+        return thegame.toString();
+    }
 }

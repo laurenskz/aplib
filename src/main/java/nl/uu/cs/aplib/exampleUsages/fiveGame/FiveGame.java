@@ -10,16 +10,18 @@ import java.util.Random;
  * pieces of player-1 are called "circles", that of player-2 are "crosses". A
  * piece is placed on an empty square. Some squares may be blocked; these are
  * randomly determined when the board was created.
- * 
+ * <p>
  * A player wins if she can make a horizontal, vertical, or diagonal connected
  * segment of length 5, consisting of only her pieces.
- * 
+ * <p>
  * The game ends in tie if the board is full, and no player wins.
- * 
- * @author wish
  *
+ * @author wish
  */
 public class FiveGame {
+
+    private int winSize;
+    private int numOfBlocked;
 
     static public enum SQUARE {
         EMPTY, CIRCLE, CROSS, BLOCKED
@@ -47,13 +49,21 @@ public class FiveGame {
     SQUARE[][] board;
     Square_ lastmove;
 
+
+    public FiveGame(int size, int numOfBlocked) {
+        this(size, numOfBlocked, 5, new Random());
+    }
+
     /**
      * Construct an instance of FiveGame of the specified size x size.
-     * 
+     *
      * @param size
      * @param numOfBlocked This many squares will be randomly selected and blocked.
      */
-    public FiveGame(int size, int numOfBlocked) {
+    public FiveGame(int size, int numOfBlocked, int winSize, Random random) {
+        this.rnd = random;
+        this.numOfBlocked = numOfBlocked;
+        this.winSize = winSize;
         boardsize = size;
         board = new SQUARE[size][size];
         for (int x = 0; x < size; x++)
@@ -91,9 +101,9 @@ public class FiveGame {
     }
 
     private boolean winningColumn(SQUARE ty, int x, int y) {
-        if (y > boardsize - 5)
+        if (y > boardsize - winSize)
             return false;
-        for (int k = 0; k < 5; k++) {
+        for (int k = 0; k < winSize; k++) {
             if (board[x][y + k] != ty)
                 return false;
         }
@@ -101,19 +111,23 @@ public class FiveGame {
     }
 
     private boolean winningRow(SQUARE ty, int x, int y) {
-        if (x > boardsize - 5)
+        if (x > boardsize - winSize)
             return false;
-        for (int k = 0; k < 5; k++) {
+        for (int k = 0; k < winSize; k++) {
             if (board[x + k][y] != ty)
                 return false;
         }
         return true;
     }
 
+    public int getWinSize() {
+        return winSize;
+    }
+
     private boolean winningDiagonal1(SQUARE ty, int x, int y) {
-        if (x > boardsize - 5 || y > boardsize - 5)
+        if (x > boardsize - winSize || y > boardsize - winSize)
             return false;
-        for (int k = 0; k < 5; k++) {
+        for (int k = 0; k < winSize; k++) {
             if (board[x + k][y + k] != ty)
                 return false;
         }
@@ -121,9 +135,9 @@ public class FiveGame {
     }
 
     private boolean winningDiagonal2(SQUARE ty, int x, int y) {
-        if (x > boardsize - 5 || y < 4)
+        if (x > boardsize - winSize || y < (winSize - 1))
             return false;
-        for (int k = 0; k < 5; k++) {
+        for (int k = 0; k < winSize; k++) {
             if (board[x + k][y - k] != ty)
                 return false;
         }
@@ -152,10 +166,14 @@ public class FiveGame {
             return GAMESTATUS.TIE;
     }
 
+    public int getNumOfBlocked() {
+        return numOfBlocked;
+    }
+
     /**
      * Place a piece of the specified type in the given coordinate. If the square is
      * unoccupied, this returns true, else false.
-     * 
+     *
      * @param ty Should be either CROSS or CIRCLE.
      */
     public boolean move(SQUARE ty, int x, int y) {
@@ -186,18 +204,20 @@ public class FiveGame {
      */
     public String toString() {
         var s = line(boardsize + 2);
-        for (int x = 0; x < boardsize; x++) {
+        for (int y = 0; y < boardsize; y++) {
             s += "\n ";
-            for (int y = 0; y < boardsize; y++)
+            for (int x = 0; x < boardsize; x++) {
                 if (board[x][y] == SQUARE.EMPTY)
-                    s += " ";
+                    s += "?";
                 else if (board[x][y] == SQUARE.CROSS)
                     s += "X";
                 else if (board[x][y] == SQUARE.CIRCLE)
                     s += "O";
                 else
                     s += "#";
+            }
         }
+
         s += "\n" + line(boardsize + 2);
         return s;
     }
@@ -245,7 +265,7 @@ public class FiveGame {
 
         /**
          * Construct an instance of RandomPlayer.
-         * 
+         *
          * @param ty   Should be either CROSS or CIRCLE.
          * @param game The instance of the FiveGame this player is supposed to play on.
          */
@@ -263,7 +283,7 @@ public class FiveGame {
             int yhigh = Math.min(N - 1, y + 1);
             for (int x_ = xlow; x_ <= xhigh; x_++)
                 for (int y_ = ylow; y_ <= yhigh; y_++) {
-                    int[] position = { x_, y_ };
+                    int[] position = {x_, y_};
                     if (x_ != x && y_ != y)
                         neighbors.add(position);
                 }
@@ -281,7 +301,7 @@ public class FiveGame {
             for (int x = 0; x < game.boardsize; x++)
                 for (int y = 0; y < game.boardsize; y++) {
                     if (game.board[x][y] == SQUARE.EMPTY) {
-                        int[] position = { x, y };
+                        int[] position = {x, y};
                         empties.add(position);
                         for (int[] neighbor : getNeigbors(x, y)) {
                             int x_ = neighbor[0];

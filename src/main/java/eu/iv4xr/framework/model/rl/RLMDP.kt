@@ -46,6 +46,9 @@ class RLMDP<State : Identifiable, Action : Identifiable>(private val model: Prob
     override fun initialState(): Distribution<StateWithGoalProgress<State>> {
         return model.initialState().map { StateWithGoalProgress(goals.map { false }, it) }
     }
+
+
 }
+
 
 

@@ -49,6 +49,14 @@ public class FiveGame_withAgent {
             return (FiveGameEnv) super.env();
         }
 
+        public int getBoardsize() {
+            return boardsize;
+        }
+
+        public SQUARE[][] getBoard() {
+            return board;
+        }
+
         /**
          * Attach the FiveGame environment to this state, and configure the prolog
          * engine to contain the AI for playing the game.
@@ -134,6 +142,7 @@ public class FiveGame_withAgent {
         @Override
         public void updateState() {
             super.updateState();
+            board = env().thegame.board;
             var lastmove = env().lastmove;
             if (lastmove != null) {
                 try {

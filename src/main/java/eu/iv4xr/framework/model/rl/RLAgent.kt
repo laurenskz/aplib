@@ -68,6 +68,11 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
         }
     }
 
+    fun resetGoal() {
+        convert(goal) { it.goal.status.resetToInProgress() }
+        updateGoalStatus(goal)
+    }
+
     /**
      * If we are in a terminal state according to the model we cannot perform an action any more
      * Therefore all goals that have not been completed have failed, and we update them accordingly

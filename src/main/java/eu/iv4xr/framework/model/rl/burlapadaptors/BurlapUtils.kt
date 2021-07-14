@@ -109,7 +109,7 @@ data class BurlapComponents<S : BurlapState, A : BurlapAction>(val domain: SADom
 class BurlapAlg<S : BurlapState, A : BurlapAction>(private val random: Random, private val alg: BurlapComponents<S, A>.() -> Policy) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): eu.iv4xr.framework.model.rl.Policy<S, A> {
         val domain = SADomain()
-        val model = mdp.toBurlapModel(Random)
+        val model = mdp.toBurlapModel(random)
         domain.actionTypes = listOf(mdp.actionTypes())
         domain.model = model
         val policy = alg(BurlapComponents(domain, mdp.stateGenerator(random), model, mdp))
