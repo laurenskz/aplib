@@ -8,33 +8,23 @@ object Distributions {
     /**
      * Uniform distribution based on some elements
      */
-    fun <T> uniform(vararg ts: T): Distribution<T> {
-        val prob = 1.0 / ts.size
-        return DiscreteDistribution(ts.associateWith { prob })
-    }
+    fun <T> uniform(vararg ts: T) = UniformDistribution(ts.asList())
 
     /**
      * Uniform distribution based on a collection of elements
      */
-    fun <T> uniform(ts: Collection<T>): Distribution<T> {
-        val prob = 1.0 / ts.size
-        return DiscreteDistribution(ts.associateWith { prob })
-    }
+    fun <T> uniform(ts: Collection<T>) = UniformDistribution(ts)
 
 
     /**
      * Uniform distribution for all ints in the range
      */
-    fun uniform(ints: IntRange): Distribution<Int> {
-        return uniform(ints.toList())
-    }
+    fun uniform(ints: IntRange) = UniformDistribution(ints.toList())
 
     /**
      * Uniform distribution for all longs in the range
      */
-    fun uniform(longs: LongRange): Distribution<Long> {
-        return uniform(longs.toList())
-    }
+    fun uniform(longs: LongRange) = UniformDistribution(longs.toList())
 
     /**
      * Discrete distribution based on values with associated probability
@@ -67,9 +57,7 @@ object Distributions {
     /**
      * Distribution of 1 element with probability 1
      */
-    fun <T> deterministic(t: T): Distribution<T> {
-        return discrete(t to 1.0)
-    }
+    fun <T> deterministic(t: T) = ConstantDistribution(t)
 }
 
 
