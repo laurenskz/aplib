@@ -6,6 +6,7 @@ import eu.iv4xr.framework.utils.updateGoalStatus
 import nl.uu.cs.aplib.mainConcepts.BasicAgent
 import nl.uu.cs.aplib.mainConcepts.GoalStructure
 import nl.uu.cs.aplib.mainConcepts.SimpleState
+import kotlin.math.pow
 import kotlin.random.Random
 
 /**
@@ -18,6 +19,12 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
     lateinit var policy: Policy<StateWithGoalProgress<ModelState>, Action>
 
     lateinit var mdp: MDP<StateWithGoalProgress<ModelState>, Action>
+
+    val rewards = mutableListOf<Reward>()
+
+    var progress = Progress(model)
+
+    private var timeStep = 0
 
     fun trainWith(alorithm: RLAlgorithm<StateWithGoalProgress<ModelState>, Action>): RLAgent<ModelState, Action> {
         mdp = createRlMDP(model, goal)
@@ -55,17 +62,38 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
             state.updateState()
             val modelState = model.convertState(state)
             if (model.isTerminal(modelState)) {
-                handleTerminalState()
+                handleTerminalState(modelState)
                 return
             }
             val goalProgress = convert(goal) { it.status.success() }
-            val action = policy.action(StateWithGoalProgress(goalProgress, modelState))
-            val proposal = model.executeAction(action.sample(random), state)
-            convert(goal) { it.goal.propose(proposal) }
+            val stateWithProgress = StateWithGoalProgress(goalProgress, modelState)
+            val action = policy.action(stateWithProgress)
+            val sampledAction = action.sample(random)
+            progress.steps.add(Step(modelState, sampledAction))
+            val proposal = model.executeAction(sampledAction, state)
+            convert(goal) {
+                if (!it.goal.status.success()) {
+                    it.goal.propose(proposal)
+                    if (it.goal.status.success()) {
+                        rewards.add(Reward(it.maxBudgetAllowed, timeStep))
+                    }
+                }
+
+            }
             updateGoalStatus(goal)
+            timeStep++
         } finally {
             unlockEnvironment()
         }
+    }
+
+    override fun restart() {
+        timeStep = 0
+        rewards.clear()
+        resetGoal()
+        state.env().resetWorker()
+        state.updateState()
+        progress = Progress(model)
     }
 
     fun resetGoal() {
@@ -73,14 +101,20 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
         updateGoalStatus(goal)
     }
 
+    fun totalReward(discountFactor: Double) =
+            rewards.sumByDouble { it.reward * discountFactor.pow(it.timeStep) }
+
     /**
      * If we are in a terminal state according to the model we cannot perform an action any more
      * Therefore all goals that have not been completed have failed, and we update them accordingly
      */
-    private fun handleTerminalState() {
+    private fun handleTerminalState(state: ModelState) {
+        progress.terminal = state
         convert(goal) {
             if (!it.status.success()) {
-                it.status.setToFail("In terminal state according to model")
+                val message = "In terminal state according to model"
+                it.goal.status.setToFail(message)
+                it.status.setToFail(message)
             }
         }
         updateGoalStatus(goal)

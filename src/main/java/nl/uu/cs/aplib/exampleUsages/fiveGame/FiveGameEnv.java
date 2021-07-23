@@ -105,6 +105,13 @@ public class FiveGameEnv extends Environment {
     }
 
     @Override
+    public void resetWorker() {
+        lastmove = null;
+
+        thegame.reset();
+    }
+
+    @Override
     public String toString() {
         return thegame.toString();
     }

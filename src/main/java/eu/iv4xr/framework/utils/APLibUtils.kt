@@ -14,11 +14,9 @@ fun updateGoalStatus(goal: GoalStructure) {
     if (goal is GoalStructure.PrimitiveGoal) {
         if (goal.goal.status.success()) {
             goal.status.setToSuccess()
-        }
-        if (goal.goal.status.failed()) {
+        } else if (goal.goal.status.failed()) {
             goal.status.setToFail(goal.goal.status.info)
-        }
-        if (goal.goal.status.inProgress()) {
+        }else if (goal.goal.status.inProgress()) {
             goal.status.resetToInProgress()
         }
     } else if (goal.subgoals.all { it.status.success() }) {

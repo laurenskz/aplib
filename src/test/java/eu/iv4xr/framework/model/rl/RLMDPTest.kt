@@ -17,7 +17,7 @@ internal class RLMDPTest {
 
     @Test
     fun possibleStates() {
-        assertEquals(8, mdp.possibleStates().count())
+        assertEquals(10, mdp.possibleStates().count())
     }
 
     @Test

@@ -4,8 +4,10 @@ import eu.iv4xr.framework.model.ProbabilisticModel
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions.uniform
 import eu.iv4xr.framework.model.distribution.always
+import eu.iv4xr.framework.model.distribution.flip
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassAction
-import eu.iv4xr.framework.model.rl.burlapadaptors.ImmutableReflectionBasedState
+import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
+import eu.iv4xr.framework.model.rl.burlapadaptors.ReflectionBasedState
 import eu.iv4xr.framework.utils.allPossible
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.SQUARE
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGameEnv.FiveGameConf
@@ -45,7 +47,7 @@ fun lineFrom(spot: FiveGameSpot, desired: Int, extender: (FiveGameLine) -> FiveG
 
 data class FiveGameAction(val x: Int, val y: Int) : DataClassAction
 
-data class FiveGameModelState(val spots: List<FiveGameSquare>) : ImmutableReflectionBasedState
+data class FiveGameModelState(val spots: List<FiveGameSquare>) : DataClassHashableState()
 
 class FiveGameModel(private val conf: FiveGameConf, private val desired: Int, private val symbol: SQUARE) : ProbabilisticModel<FiveGameModelState, FiveGameAction> {
 
@@ -57,10 +59,12 @@ class FiveGameModel(private val conf: FiveGameConf, private val desired: Int, pr
             .map(::FiveGameModelState)
 
 
-    override fun possibleActions(state: FiveGameModelState) = if (isTerminal(state)) emptySequence() else
-        state.spots.asSequence().mapIndexedNotNull { index, fiveGameSquare ->
-            conf.spots[index].takeIf { fiveGameSquare == EMPTY }
-        }.map { FiveGameAction(it.x, it.y) }
+    override fun possibleActions(state: FiveGameModelState): Sequence<FiveGameAction> {
+        return if (isTerminal(state)) emptySequence() else
+            state.spots.asSequence().mapIndexedNotNull { index, fiveGameSquare ->
+                conf.spots[index].takeIf { fiveGameSquare == EMPTY }
+            }.map { FiveGameAction(it.x, it.y) }
+    }
 
     override fun executeAction(action: FiveGameAction, state: SimpleState): Any {
         if (state !is FiveGameState) throw IllegalStateException("Wrong state")

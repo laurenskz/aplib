@@ -15,7 +15,7 @@ import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlg
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms.qLearning
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapEnum
-import eu.iv4xr.framework.model.rl.burlapadaptors.ImmutableReflectionBasedState
+import eu.iv4xr.framework.model.rl.burlapadaptors.ReflectionBasedState
 import eu.iv4xr.framework.model.rl.qValue
 import nl.uu.cs.aplib.AplibEDSL.goal
 import nl.uu.cs.aplib.environments.ConsoleEnvironment
@@ -24,7 +24,7 @@ import nl.uu.cs.aplib.exampleUsages.DumbDoctorAction.*
 import nl.uu.cs.aplib.mainConcepts.SimpleState
 import kotlin.random.Random
 
-data class DumbDoctorState(val happiness: Int) : Identifiable, ImmutableReflectionBasedState
+data class DumbDoctorState(val happiness: Int) : Identifiable, ReflectionBasedState()
 
 enum class DumbDoctorAction : Identifiable, BurlapEnum<DumbDoctorAction> {
     OPENING, QUESTION, SMART_QUESTION;

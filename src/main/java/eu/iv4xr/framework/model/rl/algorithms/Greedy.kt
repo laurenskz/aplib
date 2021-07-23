@@ -31,3 +31,4 @@ class GreedyAlg<S : Identifiable, A : Identifiable>(private val discountFactor: 
         return Greedy(mdp, discountFactor, depth)
     }
 }
+

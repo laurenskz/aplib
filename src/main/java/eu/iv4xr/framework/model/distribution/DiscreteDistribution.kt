@@ -70,6 +70,7 @@ class DiscreteDistribution<T>(val values: Map<T, Double>, private val tolerance:
      * This is not evaluated lazily and directly applies the modifier to all elements and returns a new discrete distribution
      */
     override fun <R> map(modifier: (T) -> R): Distribution<R> {
+        return ChainedDistribution(this) { always(modifier(it)) }
         val result = mutableMapOf<R, Double>()
         for (value in supportWithDensities()) {
             result.compute(modifier(value.key)) { _, prob ->

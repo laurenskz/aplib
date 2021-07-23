@@ -1,5 +1,7 @@
 package eu.iv4xr.framework.model.rl.burlapadaptors
 
+import burlap.behavior.functionapproximation.sparse.SparseStateFeatures
+import burlap.behavior.functionapproximation.sparse.StateFeature
 import burlap.behavior.policy.GreedyQPolicy
 import burlap.behavior.policy.Policy
 import burlap.behavior.valuefunction.QProvider
@@ -10,12 +12,13 @@ import burlap.mdp.core.state.State
 import burlap.mdp.singleagent.SADomain
 import burlap.mdp.singleagent.environment.EnvironmentOutcome
 import burlap.mdp.singleagent.model.SampleModel
+import burlap.statehashing.HashableState
+import burlap.statehashing.HashableStateFactory
 import eu.iv4xr.framework.model.distribution.Distributions
-import eu.iv4xr.framework.model.rl.BurlapAction
-import eu.iv4xr.framework.model.rl.BurlapState
-import eu.iv4xr.framework.model.rl.MDP
-import eu.iv4xr.framework.model.rl.RLAlgorithm
+import eu.iv4xr.framework.model.rl.*
+import java.lang.IllegalArgumentException
 import kotlin.random.Random
+import kotlin.reflect.KClass
 import kotlin.reflect.full.memberProperties
 
 /**
@@ -30,6 +33,84 @@ interface BurlapEnum<E : Enum<E>> : BurlapAction {
     override fun copy(): BurlapEnum<E> {
         return this
     }
+}
+
+fun State.variables() = variableKeys().map { get(it) }
+
+fun <S : BurlapState, A : Identifiable> MDP<S, A>.features() = compositeFeature(initialState().sample(Random(12)),
+        listOf(BoolFeature(), EnumFeature(), ListFeatures(listOf(BoolFeature(), EnumFeature())))
+)
+
+
+data class CountedFeature(val count: Int, val features: List<StateFeature>)
+
+interface FeatureExtractor {
+    fun numFeatures(any: Any): Int
+    fun features(any: Any): List<StateFeature>
+    fun applicableTo(any: Any): Boolean
+}
+
+fun SparseStateFeatures.toString(state: State): String {
+    val features = this.features(state)
+    val toMutableList = (0 until this.numFeatures()).map { 0.0 }.toMutableList()
+    features.forEach { toMutableList[it.id] = it.value }
+    return toMutableList.toString()
+}
+
+fun compositeFeature(example: State, features: List<FeatureExtractor>): SparseStateFeatures {
+    val result = extract(example, features)
+    return object : SparseStateFeatures {
+        override fun features(p0: State): MutableList<StateFeature> {
+            return extract(p0, features).features.toMutableList()
+        }
+
+        override fun copy() = this
+
+        override fun numFeatures(): Int {
+            return result.count
+        }
+    }
+}
+
+private fun extract(state: State, features: List<FeatureExtractor>): CountedFeature {
+    val objects = state.variableKeys().map { state.get(it) }
+    return mergeFeatures(objects, features)
+}
+
+private fun mergeFeatures(objects: List<*>, features: List<FeatureExtractor>): CountedFeature {
+
+    return objects.fold(CountedFeature(0, emptyList())) { (count, list), any ->
+        val extractor = features.first { it.applicableTo(any as Any) }
+        val newFeatures = extractor.features(any as Any).map { StateFeature(it.id + count, it.value) }
+        CountedFeature(count + extractor.numFeatures(any), (list + newFeatures))
+    }
+}
+
+class ListFeatures(val features: List<FeatureExtractor>) : FeatureExtractor {
+
+    private fun countedFeatures(list: List<*>) = mergeFeatures(list, features)
+
+    override fun numFeatures(any: Any) = countedFeatures(any as List<*>).count
+
+    override fun features(any: Any) = countedFeatures(any as List<*>).features
+
+    override fun applicableTo(any: Any) = any is List<*>
+}
+
+class BoolFeature : FeatureExtractor {
+    override fun numFeatures(any: Any) = 1
+
+    override fun features(any: Any) = if (any == true) listOf(StateFeature(0, 1.0)) else emptyList()
+
+    override fun applicableTo(any: Any) = any is Boolean
+}
+
+class EnumFeature : FeatureExtractor {
+    override fun numFeatures(any: Any) = any.javaClass.enumConstants.size
+
+    override fun features(any: Any) = listOf(StateFeature((any as Enum<*>).ordinal, 1.0))
+
+    override fun applicableTo(any: Any) = any is Enum<*>
 }
 
 /**
@@ -48,7 +129,7 @@ interface DataClassAction : BurlapAction {
 /**
  * Remain access to q values
  */
-class GreedyQPolicyWithQValues(qProvider: QProvider) : GreedyQPolicy(qProvider), QProvider by qProvider
+class GreedyQPolicyWithQValues(private val qProvider: QProvider) : GreedyQPolicy(qProvider), QProvider by qProvider
 
 /**
  * BurlapPolicy to internal policy
@@ -76,6 +157,16 @@ fun <S : BurlapState, A : BurlapAction> MDP<S, A>.actionTypes() = object : Actio
     override fun allApplicableActions(p0: State) = possibleActions(p0 as S).toList()
 }
 
+
+class SafePolicy<S : BurlapState>(val mdp: MDP<S, *>, val policy: Policy) : Policy by policy {
+    override fun action(p0: State): Action? {
+        if (mdp.isTerminal(p0 as S)) {
+            return null
+        }
+        return policy.action(p0)
+    }
+
+}
 
 /**
  * Create sample model from MDP
@@ -118,30 +209,51 @@ class BurlapAlg<S : BurlapState, A : BurlapAction>(private val random: Random, p
 }
 
 /**
+ * This class can be used when
+ */
+open class DataClassHashableState : HashableState, BurlapState {
+    override fun s() = this
+
+    override fun variableKeys() = mutableListOf<Any>()
+
+    override fun get(p0: Any?) = p0
+
+    override fun copy() = this
+}
+
+class DataClassStateFactory : HashableStateFactory {
+    override fun hashState(p0: State): HashableState {
+        return p0 as DataClassHashableState ?: throw IllegalArgumentException("This state is not recognized")
+    }
+}
+
+/**
  * Enumerates all memberproperties of a class
  */
-interface ReflectionBasedState : BurlapState {
-    override fun variableKeys(): MutableList<Any> {
-        return this::class.memberProperties.flatMap { property ->
-            val child = property.call(this)
-            if (child is BurlapState) {
-                child.variableKeys().map {
-                    { obj -> (BurlapState::get)(property.call(obj) as BurlapState, it) }
+open class ReflectionBasedState : BurlapState {
+
+    companion object {
+        val keys = mutableMapOf<KClass<*>, MutableList<Any>>()
+        fun getVariableKeys(clazz: KClass<*>, any: Any) = keys.getOrPut(clazz) {
+            clazz.memberProperties.flatMap { property ->
+                val child = property.call(any)
+                if (child is BurlapState) {
+                    child.variableKeys().map {
+                        { obj -> (BurlapState::get)(property.call(obj) as BurlapState, it) }
+                    }
+                } else listOf { obj: Any ->
+                    property.call(obj)
                 }
-            } else listOf { obj: Any ->
-                property.call(obj)
-            }
-        }.toMutableList()
+            }.toMutableList()
+        }
     }
+
+    override fun copy() = this
+
+    override fun variableKeys() = getVariableKeys(this::class, this)
 
     @Suppress("UNCHECKED_CAST")
     override fun get(p0: Any?): Any? {
         return (p0 as (Any) -> Any)(this)
-    }
-}
-
-interface ImmutableReflectionBasedState : ReflectionBasedState {
-    override fun copy(): State {
-        return this
     }
 }

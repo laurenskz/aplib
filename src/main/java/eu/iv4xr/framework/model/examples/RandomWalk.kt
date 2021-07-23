@@ -7,13 +7,12 @@ import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.model.examples.RandomWalkAction.*
 import eu.iv4xr.framework.model.rl.*
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapEnum
-import eu.iv4xr.framework.model.rl.burlapadaptors.ImmutableReflectionBasedState
 import eu.iv4xr.framework.model.rl.burlapadaptors.ReflectionBasedState
 import java.lang.reflect.Field
 import kotlin.math.abs
 import kotlin.math.exp
 
-data class RandomWalkState(val value: Double) : ImmutableReflectionBasedState
+data class RandomWalkState(val value: Double) : ReflectionBasedState()
 
 /**
  * We can hold a stock or sell it

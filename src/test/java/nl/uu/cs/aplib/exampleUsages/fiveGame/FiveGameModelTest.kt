@@ -7,10 +7,13 @@ import eu.iv4xr.framework.model.distinctStates
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.assertAlways
 import eu.iv4xr.framework.model.rl.Identifiable
+import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassStateFactory
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.RandomPlayer
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.SQUARE
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGameEnv.FiveGameConf
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame_withAgent.FiveGameState
+import org.junit.Ignore
+import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 import kotlin.test.assertEquals
@@ -51,11 +54,11 @@ internal class FiveGameModelTest {
             assertEquals(8, model.possibleActions(state).count())
             assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(1, 0)))
             assertEquals(6, model.possibleActions(state).count())
-            assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(0, 2)))
+            assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(0, 0)))
             assertEquals(4, model.possibleActions(state).count())
-            assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(1, 2)))
+            assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(0, 1)))
             assertEquals(2, model.possibleActions(state).count())
-            assertAlways(FiveGame.GAMESTATUS.CIRCLEWON, execute(FiveGameAction(1, 1)))
+            assertAlways(FiveGame.GAMESTATUS.CIRCLEWON, execute(FiveGameAction(0, 2)))
         }
     }
 
@@ -74,13 +77,12 @@ internal class FiveGameModelTest {
         val fiveGameModel = FiveGameModel(state.env().conf, 5, SQUARE.CIRCLE)
         val opponent = RandomPlayer(SQUARE.CROSS, thegame)
         opponent.rnd = java.util.Random(1234)
-        opponent.move()
+        thegame.attachOpponent(opponent)
         thegame.move(SQUARE.CIRCLE, 0, 0)
         state.updateState()
         assertEquals(fiveGameModel.stateString(fiveGameModel.convertState(state)).filter { it in "?OX#" },
                 thegame.toString().filter { it in "?OX#" })
 
-        opponent.move()
         thegame.move(SQUARE.CIRCLE, 1, 0)
         state.updateState()
         assertEquals(fiveGameModel.stateString(fiveGameModel.convertState(state)).filter { it in "?OX#" },
@@ -90,15 +92,16 @@ internal class FiveGameModelTest {
     @Test
     fun testExecuteAction() {
         val thegame = FiveGame(5, 0)
+        val randomPlayer = RandomPlayer(SQUARE.CROSS)
+        randomPlayer.rnd = java.util.Random(1234)
+        thegame.attachOpponent(randomPlayer)
         val state = FiveGameState().setEnvironment(FiveGameEnv().attachGame(thegame))
         val fiveGameModel = FiveGameModel(state.env().conf, 5, SQUARE.CIRCLE)
-        val opponent = RandomPlayer(SQUARE.CROSS, thegame)
-        opponent.rnd = java.util.Random(1234)
-        opponent.move()
         fiveGameModel.executeAction(FiveGameAction(4, 3), state)
         assertEquals(SQUARE.CIRCLE, thegame.board[4][3])
     }
 
+    @Disabled
     @Test
     fun testStatistics() {
         // creating an instance of the FiveGame
@@ -123,7 +126,7 @@ internal class FiveGameModelTest {
 
     @Test
     fun testState() {
-        val fact = SimpleHashableStateFactory()
+        val fact = DataClassStateFactory()
         assertEquals(
                 fact.hashState(FiveGameModelState(listOf(FiveGameSquare.CIRCLE, FiveGameSquare.EMPTY, FiveGameSquare.EMPTY))),
                 fact.hashState(FiveGameModelState(listOf(FiveGameSquare.CIRCLE, FiveGameSquare.EMPTY, FiveGameSquare.EMPTY)))

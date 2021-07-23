@@ -247,7 +247,7 @@ public class FiveGame_withAgent {
         // test() ;
 
         // creating an instance of the FiveGame
-        var thegame = new FiveGame(7, 0);
+        var thegame = new FiveGame(3, 0, 3, new Random());
         // create an agent state and an environment, attached to the game:
         var state = new FiveGameState().setEnvironment(new FiveGameEnv().attachGame(thegame));
         // creatint the agent:
@@ -309,12 +309,12 @@ public class FiveGame_withAgent {
 
         agent.setGoal(g);
         var opponent = new FiveGame.RandomPlayer(SQUARE.CIRCLE, thegame);
+        thegame.attachOpponent(opponent);
 
         Scanner consoleInput = new Scanner(System.in);
 
         // now we let the agent play against an automated random player:
         while (thegame.getGameStatus() == GAMESTATUS.UNFINISHED) {
-            opponent.move();
             if (thegame.getGameStatus() != GAMESTATUS.UNFINISHED) {
                 thegame.print();
                 thegame.printStatus();

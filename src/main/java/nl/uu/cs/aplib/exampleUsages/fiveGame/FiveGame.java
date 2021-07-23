@@ -43,11 +43,12 @@ public class FiveGame {
         }
     }
 
-    Random rnd = new Random();
+    Random rnd;
 
     int boardsize;
     SQUARE[][] board;
     Square_ lastmove;
+    RandomPlayer opponent;
 
 
     public FiveGame(int size, int numOfBlocked) {
@@ -79,6 +80,23 @@ public class FiveGame {
             board[x][y] = SQUARE.BLOCKED;
             numOfBlocked--;
         }
+    }
+
+    public FiveGame attachOpponent(RandomPlayer opponent) {
+        this.opponent = opponent;
+        opponent.game = this;
+        return this;
+    }
+
+    public void reset() {
+        lastmove = null;
+        for (int x = 0; x < boardsize; x++)
+            for (int y = 0; y < boardsize; y++) {
+                if (board[x][y] != SQUARE.BLOCKED) {
+                    board[x][y] = SQUARE.EMPTY;
+                }
+            }
+        opponent.move();
     }
 
     private String line(int n) {
@@ -177,6 +195,9 @@ public class FiveGame {
      * @param ty Should be either CROSS or CIRCLE.
      */
     public boolean move(SQUARE ty, int x, int y) {
+        if (getGameStatus() != GAMESTATUS.UNFINISHED) {
+            return false;
+        }
         if (x < 0 || x >= boardsize || y < 0 || y >= boardsize)
             throw new IllegalArgumentException();
         if (ty != SQUARE.CROSS && ty != SQUARE.CIRCLE)
@@ -191,6 +212,9 @@ public class FiveGame {
             lastmove.y = y;
         }
         board[x][y] = ty;
+        if (getGameStatus() == GAMESTATUS.UNFINISHED && ty != opponent.ty) {
+            opponent.move();
+        }
         return true;
     }
 
@@ -274,6 +298,14 @@ public class FiveGame {
             this.game = game;
         }
 
+        public RandomPlayer(SQUARE ty) {
+            this.ty = ty;
+        }
+
+        public void setGame(FiveGame game) {
+            this.game = game;
+        }
+
         List<int[]> getNeigbors(int x, int y) {
             int N = game.boardsize;
             var neighbors = new LinkedList<int[]>();
@@ -313,7 +345,7 @@ public class FiveGame {
                         }
                     }
                 }
-            if (!emptiesAdjacent.isEmpty()) {
+            if (false && !emptiesAdjacent.isEmpty()) {
                 var position = emptiesAdjacent.get(rnd.nextInt(emptiesAdjacent.size()));
                 game.move(ty, position[0], position[1]);
                 return true;
