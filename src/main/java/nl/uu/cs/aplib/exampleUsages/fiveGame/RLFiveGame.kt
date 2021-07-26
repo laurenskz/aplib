@@ -14,11 +14,29 @@ import kotlin.random.Random
 
 fun main() {
 
-    val status = GAMESTATUS.CIRCLEWON
+    val normal = FiveGame(3, 0, 3, java.util.Random()).attachOpponent(RandomPlayer(SQUARE.CROSS))
+    val predicate: (Pair<Int, Int>) -> Boolean = { pair -> normal.board[pair.first][pair.second] == SQUARE.BLOCKED }
+    val model = FiveGameModel(FiveGameEnv.FiveGameConf(normal.boardsize, predicate), normal.winSize, SQUARE.CIRCLE)
 
-    achieveStatus(GAMESTATUS.CIRCLEWON)
-    achieveStatus(GAMESTATUS.TIE)
-    achieveStatus(GAMESTATUS.CROSSWON)
+    println("Normal game normal model")
+    achieveStatus(normal, model, GAMESTATUS.CIRCLEWON)
+    achieveStatus(normal, model, GAMESTATUS.TIE)
+    achieveStatus(normal, model, GAMESTATUS.CROSSWON)
+
+    val withChange = FiveGameWithChange(3, 0, 3, java.util.Random()).attachOpponent(RandomPlayer(SQUARE.CROSS))
+    println("Changed game normal model")
+    achieveStatus(withChange, model, GAMESTATUS.CIRCLEWON)
+    achieveStatus(withChange, model, GAMESTATUS.TIE)
+    achieveStatus(withChange, model, GAMESTATUS.CROSSWON)
+
+
+    val modelWithChange = FiveGameModelWithChange(FiveGameEnv.FiveGameConf(withChange.boardsize, predicate), withChange.winSize, SQUARE.CIRCLE)
+
+    println("Changed game changed model")
+    achieveStatus(withChange, modelWithChange, GAMESTATUS.CIRCLEWON)
+    achieveStatus(withChange, modelWithChange, GAMESTATUS.TIE)
+    achieveStatus(withChange, modelWithChange, GAMESTATUS.CROSSWON)
+
     // now we let the agent play against an automated random player:
     // now we let the agent play against an automated random player:
 //    while (thegame.getGameStatus() == GAMESTATUS.UNFINISHED) {
@@ -37,14 +55,9 @@ fun main() {
 
 }
 
-private fun achieveStatus(status: GAMESTATUS) {
-    val winSize = 3
-    // creating an instance of the FiveGame
-    val thegame = FiveGame(3, 0, winSize, java.util.Random()).attachOpponent(RandomPlayer(SQUARE.CROSS))
-    // create an agent state and an environment, attached to the game:
+private fun achieveStatus(thegame: FiveGame, model: FiveGameModel, status: GAMESTATUS) {
     val state = FiveGameState().setEnvironment(FiveGameEnv().attachGame(thegame))
     // creatint the agent:
-    val model = FiveGameModel(state.env().conf, winSize, SQUARE.CIRCLE)
     val agent = RLAgent(model, Random(123))
             .attachState(state)
     // define a goal and specify a tactic:
@@ -54,16 +67,15 @@ private fun achieveStatus(status: GAMESTATUS) {
     val outcome = listOf<RLAlgorithm<StateWithGoalProgress<FiveGameModelState>, FiveGameAction>>(
             BurlapAlgorithms.qLearning(0.95, 0.4, 0.0, 100000, Random(1234)),
 //            BurlapAlgorithms.gradientSarsaLam(0.7, 0.4, 0.7, 10000, Random(1234)),
-//            GreedyAlg(0.95, 4),
+            GreedyAlg(0.95, 4),
             RandomAlg()).map { it ->
         agent.trainWith(it)
-        val nrOfSuccesses = 0..4
+        val nrOfSuccesses = 0 until 20
         nrOfSuccesses.map {
             neededEpisodes(agent, model)
         }.average()
     }.joinToString(" & ")
     println("$status & $outcome \\\\")
-
 }
 
 
@@ -73,11 +85,11 @@ private fun neededEpisodes(agent: RLAgent<FiveGameModelState, FiveGameAction>, m
         while (agent.goal.status.inProgress()) {
             agent.update()
         }
-        if (!agent.progress.plausible()) {
-            println(analyzeFaulty(agent.progress) {
-                model.stateString(it)
-            })
-        }
+//        if (!agent.progress.plausible()) {
+//            println(analyzeFaulty(agent.progress) {
+//                model.stateString(it)
+//            })
+//        }
         agent.goal.status.success()
     }
 }

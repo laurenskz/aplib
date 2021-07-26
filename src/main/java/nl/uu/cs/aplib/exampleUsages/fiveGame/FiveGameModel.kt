@@ -3,6 +3,7 @@ package nl.uu.cs.aplib.exampleUsages.fiveGame
 import eu.iv4xr.framework.model.ProbabilisticModel
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions.uniform
+import eu.iv4xr.framework.model.distribution.SequenceUniform
 import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.model.distribution.flip
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassAction
@@ -36,20 +37,15 @@ fun vertical(line: FiveGameLine) = extend(line) { FiveGameSpot(it.x, it.y + 1) }
 fun diagonal1(line: FiveGameLine) = extend(line) { FiveGameSpot(it.x + 1, it.y + 1) }
 fun diagonal2(line: FiveGameLine) = extend(line) { FiveGameSpot(it.x - 1, it.y + 1) }
 
-fun lineFrom(spot: FiveGameSpot, desired: Int, extender: (FiveGameLine) -> FiveGameLine): FiveGameLine {
-    var line = FiveGameLine(listOf(spot), desired)
-    while (!line.complete) {
-        line = extender(line)
-    }
-    return line
-}
+fun lineFrom(spot: FiveGameSpot, desired: Int, extender: (FiveGameLine) -> FiveGameLine) =
+        generateSequence(FiveGameLine(listOf(spot), desired), extender).first { it.complete }
 
 
 data class FiveGameAction(val x: Int, val y: Int) : DataClassAction
 
 data class FiveGameModelState(val spots: List<FiveGameSquare>) : DataClassHashableState()
 
-class FiveGameModel(private val conf: FiveGameConf, private val desired: Int, private val symbol: SQUARE) : ProbabilisticModel<FiveGameModelState, FiveGameAction> {
+open class FiveGameModel(private val conf: FiveGameConf, private val desired: Int, private val symbol: SQUARE) : ProbabilisticModel<FiveGameModelState, FiveGameAction> {
 
     private val opponent = if (symbol == SQUARE.CROSS) SQUARE.CIRCLE else SQUARE.CROSS
 
@@ -153,7 +149,7 @@ class FiveGameModel(private val conf: FiveGameConf, private val desired: Int, pr
         FiveGameAction(it.x, it.y)
     }.asSequence()
 
-    private fun gameStatus(state: FiveGameModelState): FiveGame.GAMESTATUS {
+    open protected fun gameStatus(state: FiveGameModelState): FiveGame.GAMESTATUS {
         val winner = lines.mapNotNull {
             when {
                 it.all { state.spots[it] == CROSS } -> FiveGame.GAMESTATUS.CROSSWON
@@ -168,6 +164,11 @@ class FiveGameModel(private val conf: FiveGameConf, private val desired: Int, pr
 
     override fun initialState(): Distribution<FiveGameModelState> {
         val empty = (0 until conf.availableSpots).map { EMPTY }.let(::FiveGameModelState)
-        return uniform((0 until conf.availableSpots).map { markSpot(empty, it, opponent) })
+        val seq = sequence {
+            for (index in 0 until conf.availableSpots) {
+                yield(markSpot(empty, index, opponent))
+            }
+        }
+        return SequenceUniform(seq, conf.availableSpots)
     }
 }
