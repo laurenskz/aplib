@@ -5,91 +5,131 @@ import eu.iv4xr.framework.model.rl.RLAlgorithm
 import eu.iv4xr.framework.model.rl.StateWithGoalProgress
 import eu.iv4xr.framework.model.rl.algorithms.GreedyAlg
 import eu.iv4xr.framework.model.rl.algorithms.RandomAlg
-import eu.iv4xr.framework.model.rl.analyzeFaulty
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
 import nl.uu.cs.aplib.AplibEDSL
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.*
+import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGameSetup.*
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame_withAgent.FiveGameState
+import java.io.File
 import kotlin.random.Random
-
-fun main() {
-
-    val normal = FiveGame(3, 0, 3, java.util.Random()).attachOpponent(RandomPlayer(SQUARE.CROSS))
-    val predicate: (Pair<Int, Int>) -> Boolean = { pair -> normal.board[pair.first][pair.second] == SQUARE.BLOCKED }
-    val model = FiveGameModel(FiveGameEnv.FiveGameConf(normal.boardsize, predicate), normal.winSize, SQUARE.CIRCLE)
-
-    println("Normal game normal model")
-    achieveStatus(normal, model, GAMESTATUS.CIRCLEWON)
-    achieveStatus(normal, model, GAMESTATUS.TIE)
-    achieveStatus(normal, model, GAMESTATUS.CROSSWON)
-
-    val withChange = FiveGameWithChange(3, 0, 3, java.util.Random()).attachOpponent(RandomPlayer(SQUARE.CROSS))
-    println("Changed game normal model")
-    achieveStatus(withChange, model, GAMESTATUS.CIRCLEWON)
-    achieveStatus(withChange, model, GAMESTATUS.TIE)
-    achieveStatus(withChange, model, GAMESTATUS.CROSSWON)
+import kotlin.system.exitProcess
+import kotlin.time.DurationUnit
+import kotlin.time.ExperimentalTime
+import kotlin.time.measureTimedValue
 
 
-    val modelWithChange = FiveGameModelWithChange(FiveGameEnv.FiveGameConf(withChange.boardsize, predicate), withChange.winSize, SQUARE.CIRCLE)
+sealed class Algorithm
 
-    println("Changed game changed model")
-    achieveStatus(withChange, modelWithChange, GAMESTATUS.CIRCLEWON)
-    achieveStatus(withChange, modelWithChange, GAMESTATUS.TIE)
-    achieveStatus(withChange, modelWithChange, GAMESTATUS.CROSSWON)
+class Optimal(val discountFactor: Double, val steps: Int) : Algorithm()
 
-    // now we let the agent play against an automated random player:
-    // now we let the agent play against an automated random player:
-//    while (thegame.getGameStatus() == GAMESTATUS.UNFINISHED) {
-//        opponent.move()
-//        if (thegame.getGameStatus() != GAMESTATUS.UNFINISHED) {
-//            thegame.print()
-//            thegame.printStatus()
-//            break
-//        }
-//        agent.update()
-//        thegame.print()
-//        thegame.printStatus()
-//        println("(press a ENTER to continue)")
-//        consoleInput.nextLine()
-//    }
+object Rand : Algorithm()
+
+data class QLearning(val episodes: Int, val discountFactor: Double, val learningRate: Double, val qInit: Double) : Algorithm()
+
+enum class FiveGameSetup {
+    NORMAL, WITH_CHANGE, WITH_CHANGE_AND_UPDATED_MODEL
+}
+
+data class AlgorithmSetup(
+        val desiredState: GAMESTATUS,
+        val fiveGameSetup: FiveGameSetup,
+        val algorithm: Algorithm,
+        val trials: Int
+)
+
+data class AlgorithmResult(
+        val setup: AlgorithmSetup,
+        val totalTimeMS: Long,
+        val totalRequiredEpisodes: Int
+)
+
+fun csvHeader() =
+        "totalEpisodes,totalTime,desiredState,repetitions,setup,algorithm,qEpisodes,qLR"
+
+
+fun csvRow(result: AlgorithmResult): String {
+    val setup = result.setup
+    val qEpisodes = if (setup.algorithm is QLearning) setup.algorithm.episodes else ""
+    val qLR = if (setup.algorithm is QLearning) setup.algorithm.learningRate else ""
+    return "${result.totalRequiredEpisodes},${result.totalTimeMS},${setup.desiredState},${setup.trials},${setup.fiveGameSetup},${setup.algorithm.javaClass.simpleName},$qEpisodes,$qLR"
+}
+
+fun gameFor(setup: FiveGameSetup): FiveGame = when (setup) {
+    NORMAL -> FiveGame(3, 0, 3, java.util.Random()).attachOpponent(RandomPlayer(SQUARE.CROSS))
+    WITH_CHANGE -> FiveGameWithChange(3, 0, 3, java.util.Random()).attachOpponent(RandomPlayer(SQUARE.CROSS))
+    WITH_CHANGE_AND_UPDATED_MODEL -> FiveGameWithChange(3, 0, 3, java.util.Random()).attachOpponent(RandomPlayer(SQUARE.CROSS))
+}
+
+
+fun modelFor(setup: FiveGameSetup, game: FiveGame): FiveGameModel {
+    val predicate: (Pair<Int, Int>) -> Boolean = { pair -> game.board[pair.first][pair.second] == SQUARE.BLOCKED }
+    return when (setup) {
+        NORMAL -> FiveGameModel(FiveGameEnv.FiveGameConf(game.boardsize, predicate), game.winSize, SQUARE.CIRCLE)
+        WITH_CHANGE -> FiveGameModel(FiveGameEnv.FiveGameConf(game.boardsize, predicate), game.winSize, SQUARE.CIRCLE)
+        WITH_CHANGE_AND_UPDATED_MODEL -> FiveGameModelWithChange(FiveGameEnv.FiveGameConf(game.boardsize, predicate), game.winSize, SQUARE.CIRCLE)
+    }
+}
+
+fun algFor(algorithm: Algorithm): RLAlgorithm<StateWithGoalProgress<FiveGameModelState>, FiveGameAction> = when (algorithm) {
+    is Optimal -> GreedyAlg(algorithm.discountFactor, algorithm.steps)
+    is Rand -> RandomAlg()
+    is QLearning -> BurlapAlgorithms.qLearning(algorithm.discountFactor, algorithm.learningRate, algorithm.qInit, algorithm.episodes, Random(1234))
+}
+
+
+@ExperimentalTime
+fun main(args: Array<String>) {
+    val out = File(args[0]).printWriter()
+    val algs = listOf(
+            Rand,
+            Optimal(0.95, 4),
+            QLearning(1000, 0.95, 0.4, 0.0),
+            QLearning(3000, 0.95, 0.4, 0.0),
+            QLearning(5000, 0.95, 0.4, 0.0),
+            QLearning(10000, 0.95, 0.4, 0.0),
+            QLearning(15000, 0.95, 0.4, 0.0),
+            QLearning(30000, 0.95, 0.4, 0.0),
+    )
+    val statuses = listOf(GAMESTATUS.CIRCLEWON, GAMESTATUS.CROSSWON, GAMESTATUS.TIE)
+    val gameSetups = listOf(WITH_CHANGE, WITH_CHANGE_AND_UPDATED_MODEL, NORMAL)
+    val trials = 100
+    val setups = algs.flatMap { alg -> statuses.flatMap { status -> gameSetups.map { gameSetup -> AlgorithmSetup(status, gameSetup, alg, trials) } } }
+    val results = setups.map {
+        val game = gameFor(it.fiveGameSetup)
+        val model = modelFor(it.fiveGameSetup, game)
+        achieveStatus(game, model, it)
+    }
+    out.println(csvHeader())
+    out.println(results.joinToString("\n") { csvRow(it) })
+    out.flush()
 
 }
 
-private fun achieveStatus(thegame: FiveGame, model: FiveGameModel, status: GAMESTATUS) {
+@ExperimentalTime
+private fun achieveStatus(thegame: FiveGame, model: FiveGameModel, setup: AlgorithmSetup): AlgorithmResult {
     val state = FiveGameState().setEnvironment(FiveGameEnv().attachGame(thegame))
-    // creatint the agent:
     val agent = RLAgent(model, Random(123))
             .attachState(state)
-    // define a goal and specify a tactic:
-    val g = AplibEDSL.goal("goal").toSolve { st: GAMESTATUS -> st == status }.lift()
+    val g = AplibEDSL.goal("goal").toSolve { st: GAMESTATUS -> st == setup.desiredState }.lift()
     g.maxbudget(10.0)
     agent.setGoal(g)
-    val outcome = listOf<RLAlgorithm<StateWithGoalProgress<FiveGameModelState>, FiveGameAction>>(
-            BurlapAlgorithms.qLearning(0.95, 0.4, 0.0, 100000, Random(1234)),
-//            BurlapAlgorithms.gradientSarsaLam(0.7, 0.4, 0.7, 10000, Random(1234)),
-            GreedyAlg(0.95, 4),
-            RandomAlg()).map { it ->
-        agent.trainWith(it)
-        val nrOfSuccesses = 0 until 20
+    val time = measureTimedValue {
+        agent.trainWith(algFor(setup.algorithm))
+        val nrOfSuccesses = 0 until setup.trials
         nrOfSuccesses.map {
-            neededEpisodes(agent, model)
-        }.average()
-    }.joinToString(" & ")
-    println("$status & $outcome \\\\")
+            repeatUntilSuccess(agent)
+        }.sum()
+    }
+    return AlgorithmResult(setup, time.duration.toLong(DurationUnit.MILLISECONDS), time.value)
 }
 
 
-private fun neededEpisodes(agent: RLAgent<FiveGameModelState, FiveGameAction>, model: FiveGameModel): Int {
+private fun repeatUntilSuccess(agent: RLAgent<FiveGameModelState, FiveGameAction>): Int {
     return generateSequence(1) { it + 1 }.first {
         agent.restart()
         while (agent.goal.status.inProgress()) {
             agent.update()
         }
-//        if (!agent.progress.plausible()) {
-//            println(analyzeFaulty(agent.progress) {
-//                model.stateString(it)
-//            })
-//        }
         agent.goal.status.success()
     }
 }

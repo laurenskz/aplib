@@ -22,7 +22,8 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
 
     val rewards = mutableListOf<Reward>()
 
-    var progress = Progress(model)
+    var transitions = TransitionLog(model)
+        private set
 
     private var timeStep = 0
 
@@ -69,7 +70,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
             val stateWithProgress = StateWithGoalProgress(goalProgress, modelState)
             val action = policy.action(stateWithProgress)
             val sampledAction = action.sample(random)
-            progress.steps.add(Step(modelState, sampledAction))
+            transitions.steps.add(Transition(modelState, sampledAction))
             val proposal = model.executeAction(sampledAction, state)
             convert(goal) {
                 if (!it.goal.status.success()) {
@@ -93,7 +94,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
         resetGoal()
         state.env().resetWorker()
         state.updateState()
-        progress = Progress(model)
+        transitions = TransitionLog(model)
     }
 
     fun resetGoal() {
@@ -109,7 +110,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
      * Therefore all goals that have not been completed have failed, and we update them accordingly
      */
     private fun handleTerminalState(state: ModelState) {
-        progress.terminal = state
+        transitions.terminal = state
         convert(goal) {
             if (!it.status.success()) {
                 val message = "In terminal state according to model"

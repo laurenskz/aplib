@@ -3,7 +3,6 @@ package eu.iv4xr.framework.model.rl
 import eu.iv4xr.framework.model.ProbabilisticModel
 import eu.iv4xr.framework.model.distribution.expectedValue
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
-import eu.iv4xr.framework.model.rl.burlapadaptors.ReflectionBasedState
 
 data class StateWithGoalProgress<State : Identifiable>(val progress: List<Boolean>, val state: State) : DataClassHashableState()
 
@@ -60,14 +59,14 @@ fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.expectedRew
 
 data class Reward(val reward: Double, val timeStep: Int)
 
-data class Step<S : Identifiable, A : Identifiable>(val s: S, val a: A)
+data class Transition<S : Identifiable, A : Identifiable>(val s: S, val a: A)
 
 data class SAS<S : Identifiable, A : Identifiable>(val state: S, val action: A, val sp: S) {
     fun transitionProb(model: ProbabilisticModel<S, A>) = model.transition(state, action).score(sp)
 }
 
-class Progress<S : Identifiable, A : Identifiable>(val model: ProbabilisticModel<S, A>) {
-    val steps = mutableListOf<Step<S, A>>()
+class TransitionLog<S : Identifiable, A : Identifiable>(val model: ProbabilisticModel<S, A>) {
+    val steps = mutableListOf<Transition<S, A>>()
     var terminal: S? = null
 
     fun plausible() = transitionProbabilities().all { it > 0 }
@@ -84,9 +83,9 @@ class Progress<S : Identifiable, A : Identifiable>(val model: ProbabilisticModel
     }
 }
 
-fun <S : Identifiable, A : Identifiable> analyzeFaulty(progress: Progress<S, A>, string: (S) -> String): String =
-        progress.sas().filter {
-            it.transitionProb(progress.model) <= 0
+fun <S : Identifiable, A : Identifiable> analyzeFaulty(transitionLog: TransitionLog<S, A>, string: (S) -> String): String =
+        transitionLog.sas().filter {
+            it.transitionProb(transitionLog.model) <= 0
         }.joinToString("\n") {
             "Deviation from model, was in state:\n ${string(it.state)}\nTook action ${it.action}, ended up in:\n${string(it.sp)}"
         }
