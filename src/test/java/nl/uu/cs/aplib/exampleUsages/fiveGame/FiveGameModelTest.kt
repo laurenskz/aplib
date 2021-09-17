@@ -8,6 +8,7 @@ import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.assertAlways
 import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassStateFactory
+import eu.iv4xr.framework.model.utils.DeterministicRandom
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.RandomPlayer
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.SQUARE
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGameEnv.FiveGameConf
@@ -50,15 +51,14 @@ internal class FiveGameModelTest {
     fun ticTacToe() {
         val conf = FiveGameConf(3) { false }
         val fiveGameModel = FiveGameModel(conf, 3, SQUARE.CIRCLE)
-        fiveGameModel.sampleExecution(Random(2)) {
+        fiveGameModel.sampleExecution(DeterministicRandom()) {
             assertEquals(8, model.possibleActions(state).count())
             assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(1, 0)))
             assertEquals(6, model.possibleActions(state).count())
-            assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(0, 0)))
+            assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(2, 1)))
             assertEquals(4, model.possibleActions(state).count())
-            assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(0, 1)))
-            assertEquals(2, model.possibleActions(state).count())
-            assertAlways(FiveGame.GAMESTATUS.CIRCLEWON, execute(FiveGameAction(0, 2)))
+            assertAlways(FiveGame.GAMESTATUS.UNFINISHED, execute(FiveGameAction(1, 2)))
+            assertAlways(FiveGame.GAMESTATUS.CROSSWON, execute(FiveGameAction(0, 2)))
         }
     }
 

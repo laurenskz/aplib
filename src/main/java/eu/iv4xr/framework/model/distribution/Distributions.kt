@@ -29,7 +29,7 @@ object Distributions {
     /**
      * Discrete distribution based on values with associated probability
      */
-    fun <T> discrete(vararg elements: Pair<T, Double>): Distribution<T> {
+    fun <T> discrete(vararg elements: Pair<out T, Double>): Distribution<T> {
         return DiscreteDistribution(mapOf(*elements))
     }
 

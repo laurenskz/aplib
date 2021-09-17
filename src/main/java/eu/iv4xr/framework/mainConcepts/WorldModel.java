@@ -302,4 +302,20 @@ public class WorldModel {
         return env.moveToward(agentId, position, targetLocation);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        WorldModel that = (WorldModel) o;
+        return Objects.equals(agentId, that.agentId) &&
+                Objects.equals(position, that.position) &&
+                Objects.equals(velocity, that.velocity) &&
+                Objects.equals(extent, that.extent) &&
+                Objects.equals(elements, that.elements);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(agentId, position, velocity, extent, elements);
+    }
 }

@@ -10,6 +10,7 @@ import eu.iv4xr.framework.model.rl.RLAgentTest.TestAction.RIGHT
 import eu.iv4xr.framework.model.rl.RLAgentTest.TestModelState.*
 import eu.iv4xr.framework.model.rl.algorithms.GreedyAlg
 import eu.iv4xr.framework.model.terminal
+import eu.iv4xr.framework.model.utils.DeterministicRandom
 import nl.uu.cs.aplib.AplibEDSL.goal
 import nl.uu.cs.aplib.mainConcepts.Environment
 import nl.uu.cs.aplib.mainConcepts.GoalStructure
@@ -122,7 +123,7 @@ internal class RLAgentTest {
 
     @Test
     fun testAgent() {
-        val testEnv = TestEnv(Random(3020))
+        val testEnv = TestEnv(DeterministicRandom())
         val state1 = TestState()
         state1.setEnvironment(testEnv)
         val get3 = goal("Get value 3").toSolve<Int> { it == 3 }.lift().maxbudget(3.0)
@@ -135,48 +136,10 @@ internal class RLAgentTest {
         assertEquals("", state1.state)
         state1.updateState()
 
-        assertEquals("One", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("One", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("Two", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("One", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("Two", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("One", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("Two", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("One", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("One", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("One", state1.state)
-        agent.update()
-        assertTrue(g.status.inProgress())
-
-        assertEquals("Two", state1.state)
-        agent.update()
+        while (g.status.inProgress()) {
+            assertTrue(listOf("One", "Two").contains(state1.state))
+            agent.update()
+        }
 
         assertEquals("Pit", state1.state)
         assertFalse(g.status.inProgress())

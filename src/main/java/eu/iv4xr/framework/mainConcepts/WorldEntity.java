@@ -199,6 +199,18 @@ public class WorldEntity implements Serializable {
         return Objects.hash(position, velocity, extent, properties, elements);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        WorldEntity that = (WorldEntity) o;
+        return Objects.equals(position, that.position) &&
+                Objects.equals(extent, that.extent) &&
+                Objects.equals(velocity, that.velocity) &&
+                Objects.equals(properties, that.properties) &&
+                Objects.equals(elements, that.elements);
+    }
+
     public WorldEntity deepclone() throws IOException, ClassNotFoundException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream out = new ObjectOutputStream(bos);
