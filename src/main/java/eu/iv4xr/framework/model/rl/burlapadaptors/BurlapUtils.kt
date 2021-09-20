@@ -1,5 +1,6 @@
 package eu.iv4xr.framework.model.rl.burlapadaptors
 
+import burlap.behavior.functionapproximation.dense.DenseStateFeatures
 import burlap.behavior.functionapproximation.sparse.SparseStateFeatures
 import burlap.behavior.functionapproximation.sparse.StateFeature
 import burlap.behavior.policy.GreedyQPolicy
@@ -16,6 +17,7 @@ import burlap.statehashing.HashableState
 import burlap.statehashing.HashableStateFactory
 import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.rl.*
+import eu.iv4xr.framework.model.rl.approximation.FeatureVectorFactory
 import java.lang.IllegalArgumentException
 import kotlin.random.Random
 import kotlin.reflect.KClass
@@ -158,7 +160,17 @@ fun <S : BurlapState, A : BurlapAction> MDP<S, A>.actionTypes() = object : Actio
 }
 
 
+@Suppress("UNCHECKED_CAST")
+fun <T : BurlapState> FeatureVectorFactory<T>.stateFeatures() = object : DenseStateFeatures {
+    override fun features(p0: State?): DoubleArray {
+        return this@stateFeatures.features(p0 as T)
+    }
+
+    override fun copy() = this
+}
+
 class SafePolicy<S : BurlapState>(val mdp: MDP<S, *>, val policy: Policy) : Policy by policy {
+    @Suppress("UNCHECKED_CAST")
     override fun action(p0: State): Action? {
         if (mdp.isTerminal(p0 as S)) {
             return null

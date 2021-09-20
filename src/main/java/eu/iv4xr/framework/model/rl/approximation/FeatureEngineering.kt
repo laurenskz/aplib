@@ -7,15 +7,15 @@ import kotlin.reflect.KClass
 import kotlin.reflect.safeCast
 
 interface FeatureVectorFactory<T> {
-    fun features(t: T): FloatArray = FloatArray(count()).also { setFrom(t, it, 0) }
-    fun setFrom(t: T, result: FloatArray, start: Int)
+    fun features(t: T): DoubleArray = DoubleArray(count()).also { setFrom(t, it, 0) }
+    fun setFrom(t: T, result: DoubleArray, start: Int)
     fun count(): Int
 }
 
 typealias FeatureActionFactory<S, A> = FeatureVectorFactory<Pair<S, A>>
 
 class MergedFeatureFactory<T, A>(val first: FeatureVectorFactory<T>, val second: FeatureVectorFactory<A>) : FeatureVectorFactory<Pair<T, A>> {
-    override fun setFrom(t: Pair<T, A>, result: FloatArray, start: Int) {
+    override fun setFrom(t: Pair<T, A>, result: DoubleArray, start: Int) {
         first.setFrom(t.first, result, start)
         second.setFrom(t.second, result, start + first.count())
     }
@@ -31,8 +31,8 @@ fun <T : FeatureOwner<T>> T.features() = factory.features(this)
 
 class OneHot<T>(val ts: List<T>) : FeatureVectorFactory<T> {
 
-    override fun setFrom(t: T, result: FloatArray, start: Int) {
-        ts.forEachIndexed { i, tp -> result[i + start] = if (t == tp) 1f else 0f }
+    override fun setFrom(t: T, result: DoubleArray, start: Int) {
+        ts.forEachIndexed { i, tp -> result[i + start] = if (t == tp) 1.0 else 0.0 }
     }
 
     override fun count(): Int {
@@ -40,10 +40,10 @@ class OneHot<T>(val ts: List<T>) : FeatureVectorFactory<T> {
     }
 }
 
-open class PrimitiveFeature<T>(val toFloat: (T) -> Float) : FeatureVectorFactory<T> {
+open class PrimitiveFeature<T>(val toDouble: (T) -> Double) : FeatureVectorFactory<T> {
 
-    override fun setFrom(t: T, result: FloatArray, start: Int) {
-        result[start] = toFloat(t)
+    override fun setFrom(t: T, result: DoubleArray, start: Int) {
+        result[start] = toDouble(t)
     }
 
     override fun count(): Int {
@@ -52,11 +52,11 @@ open class PrimitiveFeature<T>(val toFloat: (T) -> Float) : FeatureVectorFactory
 }
 
 class ExtractFeature<T, V>(val factory: FeatureVectorFactory<V>, val lens: (T) -> V) : FeatureVectorFactory<T> {
-    override fun features(t: T): FloatArray {
+    override fun features(t: T): DoubleArray {
         return factory.features(lens(t))
     }
 
-    override fun setFrom(t: T, result: FloatArray, start: Int) {
+    override fun setFrom(t: T, result: DoubleArray, start: Int) {
         return factory.setFrom(lens(t), result, start)
     }
 
@@ -67,8 +67,8 @@ class ExtractFeature<T, V>(val factory: FeatureVectorFactory<V>, val lens: (T) -
 
 class RepeatedFeature<T>(val repetitions: Int, val factory: FeatureVectorFactory<T>) : FeatureVectorFactory<List<T>> {
 
-    override fun setFrom(t: List<T>, result: FloatArray, start: Int) {
-        for (i in (0..max(repetitions, t.count()))) {
+    override fun setFrom(t: List<T>, result: DoubleArray, start: Int) {
+        for (i in (0 until max(repetitions, t.count()))) {
             factory.setFrom(t[i], result, start + i * factory.count())
         }
     }
@@ -80,10 +80,10 @@ class RepeatedFeature<T>(val repetitions: Int, val factory: FeatureVectorFactory
 
 object Vec3Feature : FeatureVectorFactory<Vec3> {
 
-    override fun setFrom(t: Vec3, result: FloatArray, start: Int) {
-        result[0] = t.x
-        result[1] = t.y
-        result[2] = t.z
+    override fun setFrom(t: Vec3, result: DoubleArray, start: Int) {
+        result[0] = t.x.toDouble()
+        result[1] = t.y.toDouble()
+        result[2] = t.z.toDouble()
     }
 
     override fun count() = 3
@@ -97,7 +97,7 @@ class SumTypeFeatureFactory<T : Any>(val factories: List<OptionalFeatureFactory<
     val offsets = factories.mapIndexed { idx, fac -> fac.clazz to counts[idx] }.toMap()
 
 
-    override fun setFrom(t: T, result: FloatArray, start: Int) {
+    override fun setFrom(t: T, result: DoubleArray, start: Int) {
         map[t::class]?.setFrom(t, result, start + (offsets[t::class] ?: error("Unrecognized class")))
     }
 
@@ -106,9 +106,9 @@ class SumTypeFeatureFactory<T : Any>(val factories: List<OptionalFeatureFactory<
 
 class OptionalFeatureFactory<T : Any, V : T>(val clazz: KClass<V>, val factory: FeatureVectorFactory<V>) : FeatureVectorFactory<T> {
 
-    override fun setFrom(t: T, result: FloatArray, start: Int) {
+    override fun setFrom(t: T, result: DoubleArray, start: Int) {
         clazz.safeCast(t)?.also {
-            factory.setFrom(it, FloatArray(0), 0)
+            factory.setFrom(it, DoubleArray(0), 0)
         }
     }
 
@@ -124,12 +124,13 @@ class EncodedSumType<T : Any>(factories: List<OptionalFeatureFactory<T, *>>) : C
         OneHot(factories.map { it.clazz }).from { it::class },
         SumTypeFeatureFactory(factories)
 ))
+
 infix fun <T : Any, V : T> KClass<V>.with(factory: FeatureVectorFactory<V>) = OptionalFeatureFactory<T, V>(this, factory)
 
 
 open class CompositeFeature<T>(val featureVectorFactories: List<FeatureVectorFactory<T>>) : FeatureVectorFactory<T> {
 
-    override fun setFrom(t: T, result: FloatArray, start: Int) {
+    override fun setFrom(t: T, result: DoubleArray, start: Int) {
         var count = 0
         for (featureVectorFactory in featureVectorFactories) {
             featureVectorFactory.setFrom(t, result, start + count)
@@ -144,5 +145,6 @@ open class CompositeFeature<T>(val featureVectorFactories: List<FeatureVectorFac
 
 fun <T, V> FeatureVectorFactory<V>.from(f: (T) -> V) = ExtractFeature(this, f)
 
-object IntFeature : PrimitiveFeature<Int>({ it.toFloat() })
-object BoolFeature : PrimitiveFeature<Boolean>({ if (it) 1f else 0f })
+object IntFeature : PrimitiveFeature<Int>({ it.toDouble() })
+object DoubleFeature : PrimitiveFeature<Double>({ it })
+object BoolFeature : PrimitiveFeature<Boolean>({ if (it) 1.0 else 0.0 })

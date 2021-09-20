@@ -1,5 +1,6 @@
 package eu.iv4xr.framework.model.rl.burlapadaptors
 
+import burlap.behavior.functionapproximation.dense.DenseLinearVFA
 import burlap.behavior.functionapproximation.sparse.LinearVFA
 import burlap.behavior.policy.EpsilonGreedy
 import burlap.behavior.singleagent.learning.tdmethods.QLearning
@@ -9,6 +10,7 @@ import burlap.statehashing.simple.SimpleHashableStateFactory
 import eu.iv4xr.framework.model.distribution.expectedValue
 import eu.iv4xr.framework.model.rl.BurlapAction
 import eu.iv4xr.framework.model.rl.BurlapState
+import eu.iv4xr.framework.model.rl.approximation.FeatureVectorFactory
 import kotlin.random.Random
 import kotlin.system.exitProcess
 
@@ -30,10 +32,8 @@ object BurlapAlgorithms {
 //
 //    }
 
-    fun <S : BurlapState, A : BurlapAction> gradientSarsaLam(discountFactor: Double, learningRate: Double, lambda: Double, numEpisodes: Int, random: Random) = BurlapAlg<S, A>(random) {
-        val features = mdp.features()
-        val lam = GradientDescentSarsaLam(domain, discountFactor, LinearVFA(mdp.features()), learningRate, lambda)
-        lam.setLearningPolicy(SafePolicy(mdp, EpsilonGreedy(lam, 0.1)))
+    fun <S : BurlapState, A : BurlapAction> gradientSarsaLam(discountFactor: Double, learningRate: Double, lambda: Double, numEpisodes: Int, factory: FeatureVectorFactory<S>, random: Random) = BurlapAlg<S, A>(random) {
+        val lam = GradientDescentSarsaLam(domain, discountFactor, DenseLinearVFA(factory.stateFeatures(), 0.0), learningRate, lambda)
         repeat(numEpisodes) {
             lam.runLearningEpisode(SimulatedEnvironment(model, stateGenerator))
         }
