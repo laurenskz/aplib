@@ -69,5 +69,7 @@ internal class DiscreteDistributionTest {
         assertEquals(0.5, strings.score("TAILS"))
         assertEquals(1.0, fairCoin.map { "" }.score(""))
         assertEquals("", fairCoin.map { "" }.sample(Random(123)))
+
+
     }
 }

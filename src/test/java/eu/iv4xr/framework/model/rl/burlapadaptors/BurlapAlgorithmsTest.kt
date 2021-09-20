@@ -27,8 +27,10 @@ internal class BurlapAlgorithmsTest {
             kotlin.test.fail("We expect greedy qpolicy")
         }
         mdp.possibleStates().forEach { s ->
-            mdp.possibleActions(s).forEach {
-                Assert.assertEquals(mdp.qValue(s, it, 0.9, 5), qs.qValue(s, it), 0.01)
+            mdp.possibleStates().forEach { s ->
+                mdp.possibleActions(s).forEach {
+                    Assert.assertEquals(mdp.qValue(s, it, 0.9, 5), qs.qValue(s, it), 0.01)
+                }
             }
         }
     }

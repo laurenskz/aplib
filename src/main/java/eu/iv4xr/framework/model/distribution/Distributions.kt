@@ -1,5 +1,7 @@
 package eu.iv4xr.framework.model.distribution
 
+import org.rlcommunity.rlglue.codec.taskspec.ranges.DoubleRange
+
 /**
  * Some basic probability distributions
  */
@@ -52,6 +54,10 @@ object Distributions {
      */
     fun bernoulli(p: Double): Distribution<Boolean> {
         return discrete(true to p, false to (1 - p))
+    }
+
+    fun real(min: Double, max: Double, step: Double): Distribution<Double> {
+        return RealDistribution(min, max, step)
     }
 
     /**

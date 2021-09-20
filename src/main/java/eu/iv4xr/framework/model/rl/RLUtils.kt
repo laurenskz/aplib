@@ -1,8 +1,12 @@
 package eu.iv4xr.framework.model.rl
 
 import eu.iv4xr.framework.model.ProbabilisticModel
+import eu.iv4xr.framework.model.distribution.Distribution
+import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.distribution.expectedValue
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
+
+infix fun ClosedFloatingPointRange<Double>.sampleWithStepSize(step: Double) = Distributions.real(this.start, this.endInclusive, step)
 
 data class StateWithGoalProgress<State : Identifiable>(val progress: List<Boolean>, val state: State) : DataClassHashableState()
 
