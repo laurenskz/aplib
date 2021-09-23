@@ -19,6 +19,17 @@ fun <T : Identifiable> stateWithGoalProgressFactory(wrapped: FeatureVectorFactor
         RepeatedFeature(count, BoolFeature).from { it.progress }
 ))
 
+fun <T : Identifiable, A : Identifiable> stateActionWithGoalProgressFactory(wrapped: FeatureActionFactory<T, A>, count: Int): FeatureActionFactory<StateWithGoalProgress<T>, A> = CompositeFeature(listOf(
+        wrapped.from { it.first.state to it.second },
+        RepeatedFeature(count, BoolFeature).from { it.first.progress }
+))
+
+
+val combinedPlaygroundFactory: FeatureActionFactory<PlaygroundState, PlaygroundAction> = CompositeFeature(listOf(
+        DoubleFeature.from { (it.first.luck-it.first.badLuck) * it.second.betAmount },
+//        DoubleFeature.from { it.first.badLuck * it.second.betAmount },
+))
+
 data class PlaygroundState(val tries: Int, val luck: Double, val badLuck: Double, val money: Int) : DataClassHashableState() {
     companion object {
         val factory: FeatureVectorFactory<PlaygroundState> = CompositeFeature(listOf(
@@ -60,18 +71,14 @@ class Playground : ProbabilisticModel<PlaygroundState, PlaygroundAction> {
     }
 
     override fun isTerminal(state: PlaygroundState): Boolean {
-        if (state.tries == 0) {
-            println("What!!!?")
-        }
         return state.tries <= 0
     }
 
     override fun transition(current: PlaygroundState, action: PlaygroundAction): Distribution<PlaygroundState> {
-        println("We now have $current")
         val betAmount = action.betAmount
-        return ((0.0..1.0) sampleWithStepSize 0.01).chain { newLuck ->
-            ((0.0..1.0) sampleWithStepSize 0.01).chain { newBadLuck ->
-                ((0.0..1.0) sampleWithStepSize 0.01).chain { rand ->
+        return ((0.0..1.0) sampleWithStepSize 0.1).chain { newLuck ->
+            ((0.0..1.0) sampleWithStepSize 0.1).chain { newBadLuck ->
+                ((0.0..1.0) sampleWithStepSize 0.1).chain { rand ->
                     val addition = (rand * betAmount * (current.luck - current.badLuck)).toInt()
                     always(PlaygroundState(current.tries - 1, newLuck, newBadLuck, current.money + addition))
                 }
@@ -86,6 +93,6 @@ class Playground : ProbabilisticModel<PlaygroundState, PlaygroundAction> {
     override fun possibleActions() = actions
 
     override fun initialState() = always(
-            PlaygroundState(100, 0.0, 0.0, 0),
+            PlaygroundState(3, 0.0, 0.0, 0),
     )
 }

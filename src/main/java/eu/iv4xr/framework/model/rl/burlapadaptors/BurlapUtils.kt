@@ -135,13 +135,11 @@ interface DataClassAction : BurlapAction {
  * Remain access to q values
  */
 class GreedyQPolicyWithQValues(private val qProvider: QProvider) : GreedyQPolicy(qProvider), QProvider by qProvider {
-    override fun action(s: State?): Action? {
-        if (qProvider.qValues(s).size == 0) {
-            println("He")
-        }
-        println("H")
-        return super.action(s)
+    override fun actionProb(s: State?, a: Action?): Double {
+//        println(qValues(s).map { it.q })
+        return super.actionProb(s, a)
     }
+
 }
 
 /**
