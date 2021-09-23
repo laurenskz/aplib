@@ -37,7 +37,7 @@ data class PlaygroundAction(val betAmount: Int) : DataClassAction {
 }
 
 
-fun playgroundMDP(targets: List<Int>) = RLMDP(Playground(), targets.map { t -> basicGoal<Int>(1.0) { it > t } })
+fun playgroundMDP(targets: List<Int>) = NonTerminalRLMDP(Playground(), targets.map { t -> basicGoal<Int>(1.0) { it > t } })
 
 
 class Playground : ProbabilisticModel<PlaygroundState, PlaygroundAction> {

@@ -1,6 +1,7 @@
 package eu.iv4xr.framework.model.rl
 
 import eu.iv4xr.framework.model.ProbabilisticModel
+import eu.iv4xr.framework.model.distribution.ConstantDistribution
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.utils.allPossibleGoalStates
@@ -11,7 +12,7 @@ import eu.iv4xr.framework.utils.allPossibleGoalStates
  *
  * Goals drive the reward function, but the reward is only given the first time the goal is achieved
  */
-class RLMDP<State : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<State, Action>, private val goals: List<MDPGoal>) : MDP<StateWithGoalProgress<State>, Action> {
+open class RLMDP<State : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<State, Action>, private val goals: List<MDPGoal>) : MDP<StateWithGoalProgress<State>, Action> {
     override fun possibleStates() = model.possibleStates().flatMap { modelState -> allPossibleGoalStates(goals.size).map { StateWithGoalProgress(it, modelState) } }
 
     override fun possibleActions(state: StateWithGoalProgress<State>) = if (isTerminal(state)) emptySequence() else model.possibleActions(state.state)
@@ -48,6 +49,23 @@ class RLMDP<State : Identifiable, Action : Identifiable>(private val model: Prob
     }
 
 
+}
+
+class NonTerminalRLMDP<State : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<State, Action>, private val goals: List<MDPGoal>) : RLMDP<State, Action>(model, goals) {
+    override fun reward(current: StateWithGoalProgress<State>, action: Action, newState: StateWithGoalProgress<State>): ConstantDistribution<Double> {
+        if (isTerminal(current)) return always(0.0)
+        return super.reward(current, action, newState)
+    }
+
+    override fun transition(current: StateWithGoalProgress<State>, action: Action): Distribution<StateWithGoalProgress<State>> {
+        if (isTerminal(current)) return always(current)
+        return super.transition(current, action)
+    }
+
+    override fun possibleActions(state: StateWithGoalProgress<State>): Sequence<Action> {
+        if (isTerminal(state)) return sequenceOf(allPossibleActions().first())
+        return super.possibleActions(state)
+    }
 }
 
 
