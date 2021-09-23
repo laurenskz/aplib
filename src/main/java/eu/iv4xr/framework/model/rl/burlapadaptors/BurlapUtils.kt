@@ -1,5 +1,6 @@
 package eu.iv4xr.framework.model.rl.burlapadaptors
 
+import burlap.behavior.functionapproximation.dense.DenseStateActionFeatures
 import burlap.behavior.functionapproximation.dense.DenseStateFeatures
 import burlap.behavior.functionapproximation.sparse.SparseStateFeatures
 import burlap.behavior.functionapproximation.sparse.StateFeature
@@ -12,11 +13,13 @@ import burlap.mdp.core.action.ActionType
 import burlap.mdp.core.state.State
 import burlap.mdp.singleagent.SADomain
 import burlap.mdp.singleagent.environment.EnvironmentOutcome
+import burlap.mdp.singleagent.environment.SimulatedEnvironment
 import burlap.mdp.singleagent.model.SampleModel
 import burlap.statehashing.HashableState
 import burlap.statehashing.HashableStateFactory
 import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.rl.*
+import eu.iv4xr.framework.model.rl.approximation.FeatureActionFactory
 import eu.iv4xr.framework.model.rl.approximation.FeatureVectorFactory
 import java.lang.IllegalArgumentException
 import kotlin.random.Random
@@ -131,7 +134,15 @@ interface DataClassAction : BurlapAction {
 /**
  * Remain access to q values
  */
-class GreedyQPolicyWithQValues(private val qProvider: QProvider) : GreedyQPolicy(qProvider), QProvider by qProvider
+class GreedyQPolicyWithQValues(private val qProvider: QProvider) : GreedyQPolicy(qProvider), QProvider by qProvider {
+    override fun action(s: State?): Action? {
+        if (qProvider.qValues(s).size == 0) {
+            println("He")
+        }
+        println("H")
+        return super.action(s)
+    }
+}
 
 /**
  * BurlapPolicy to internal policy
@@ -166,7 +177,15 @@ fun <T : BurlapState> FeatureVectorFactory<T>.stateFeatures() = object : DenseSt
         return this@stateFeatures.features(p0 as T)
     }
 
-    override fun copy() = this
+    override fun copy(): DenseStateFeatures = this
+}
+
+fun <T : BurlapState, A : BurlapAction> FeatureActionFactory<T, A>.stateActionFeatures() = object : DenseStateActionFeatures {
+    override fun features(p0: State?, p1: Action?): DoubleArray {
+        return this@stateActionFeatures.features((p0 as T) to (p1 as A))
+    }
+
+    override fun copy(): DenseStateActionFeatures = this
 }
 
 class SafePolicy<S : BurlapState>(val mdp: MDP<S, *>, val policy: Policy) : Policy by policy {
@@ -176,6 +195,13 @@ class SafePolicy<S : BurlapState>(val mdp: MDP<S, *>, val policy: Policy) : Poli
             return null
         }
         return policy.action(p0)
+    }
+
+}
+
+class FixedEnv(domain: SampleModel, initialState: StateGenerator) : SimulatedEnvironment(domain, initialState) {
+    init {
+        allowActionFromTerminalStates = false
     }
 
 }

@@ -16,4 +16,5 @@ interface MDP<State : Identifiable, Action : Identifiable> {
     fun reward(current: State, action: Action, newState: State): Distribution<Double>
 
     fun initialState(): Distribution<State>
+
 }

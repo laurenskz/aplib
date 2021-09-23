@@ -36,6 +36,7 @@ data class PlaygroundAction(val betAmount: Int) : DataClassAction {
     }
 }
 
+
 fun playgroundMDP(targets: List<Int>) = RLMDP(Playground(), targets.map { t -> basicGoal<Int>(1.0) { it > t } })
 
 
@@ -59,6 +60,9 @@ class Playground : ProbabilisticModel<PlaygroundState, PlaygroundAction> {
     }
 
     override fun isTerminal(state: PlaygroundState): Boolean {
+        if (state.tries == 0) {
+            println("What!!!?")
+        }
         return state.tries <= 0
     }
 

@@ -28,4 +28,13 @@ internal class PlaygroundTest {
         val alg = BurlapAlgorithms.gradientSarsaLam<StateWithGoalProgress<PlaygroundState>, PlaygroundAction>(0.9, 0.01, 0.1, 1000, stateWithGoalProgressFactory(PlaygroundState.factory, targets.size), DeterministicRandom())
         alg.train(mdp)
     }
+
+    @Test
+    fun testLSPI() {
+        val targets = listOf(100)
+        val mdp = playgroundMDP(targets)
+        val factory = MergedFeatureFactory(stateWithGoalProgressFactory(PlaygroundState.factory,targets.size), PlaygroundAction.factory)
+        val alg = BurlapAlgorithms.lspi(0.9,1000,factory,DeterministicRandom())
+        alg.train(mdp)
+    }
 }
