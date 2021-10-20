@@ -140,7 +140,7 @@ class AllActionOutputQModel<S : Identifiable, A : Identifiable>(val model: Model
         val currentQs = model.predictSoftly(OnHeapDataset.create(features, FloatArray(features.size)), features.size)
         val broadTargets = currentQs.mapIndexed { i, qs ->
             FloatArray(qs.size) { qI ->
-                if (qI == allActions.indexOf(samples[i])) {
+                if (qI == allActions.indexOf(samples[i].a)) {
                     targets[i]
                 } else qs[qI]
             }

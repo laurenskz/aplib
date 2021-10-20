@@ -20,16 +20,9 @@ internal class RLMDPTest {
     }
 
     @Test
-    fun possibleActions() {
-        for (state in mdp.possibleStates()) {
-            assertEquals(RLAgentTest.TestModel().possibleActions(state.state).toList(), mdp.possibleActions(state).toList())
-        }
-    }
-
-    @Test
     fun isTerminal() {
         for (state in mdp.possibleStates()) {
-            assertEquals(RLAgentTest.TestModel().isTerminal(state.state), mdp.isTerminal(state))
+            if (RLAgentTest.TestModel().isTerminal(state.state)) assertTrue(mdp.isTerminal(state))
         }
     }
 

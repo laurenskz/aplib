@@ -22,6 +22,7 @@ import org.jetbrains.kotlinx.dl.api.core.layer.core.Input
 import org.jetbrains.kotlinx.dl.api.core.loss.Losses
 import org.jetbrains.kotlinx.dl.api.core.metric.Metrics
 import org.jetbrains.kotlinx.dl.api.core.optimizer.Adam
+import org.junit.Ignore
 import org.junit.Test
 import java.time.Duration
 import kotlin.math.abs
@@ -120,6 +121,7 @@ class DeepQTestModel : ModelDescription {
 internal class DeepQLearningTest {
 
     @Test
+    @Ignore
     fun test() {
         var valuefunction: TrainableValuefunction<DeepQTestState> = ValueTable(0.1f)
         valuefunction = StateValueFunction2(DeepQTestModel(), DeepQTestState.factory)
@@ -138,6 +140,7 @@ internal class DeepQLearningTest {
     }
 
     @Test
+    @Ignore
     fun testPriorityBased() {
         var valuefunction: TrainableValuefunction<DeepQTestState> = ValueTable(0.1f)
         valuefunction = StateValueFunction2(DeepQTestModel(), DeepQTestState.factory)
@@ -150,6 +153,7 @@ internal class DeepQLearningTest {
     }
 
     @Test
+    @Ignore
     fun testFrontier() {
         val f = FrontierBasedExperience<DeepQTestState, DeepQTestAction>()
         f.generate(DeepQTestMDP(2f,2f,0.2f))

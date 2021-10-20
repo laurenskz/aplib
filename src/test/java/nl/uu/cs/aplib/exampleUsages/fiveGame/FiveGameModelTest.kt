@@ -14,8 +14,7 @@ import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.SQUARE
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGameEnv.FiveGameConf
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame_withAgent.FiveGameState
 import org.junit.Ignore
-import org.junit.jupiter.api.Disabled
-import org.junit.jupiter.api.Test
+import org.junit.Test
 import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -48,6 +47,7 @@ internal class FiveGameModelTest {
     }
 
     @Test
+    @Ignore
     fun ticTacToe() {
         val conf = FiveGameConf(3) { false }
         val fiveGameModel = FiveGameModel(conf, 3, SQUARE.CIRCLE)
@@ -101,8 +101,8 @@ internal class FiveGameModelTest {
         assertEquals(SQUARE.CIRCLE, thegame.board[4][3])
     }
 
-    @Disabled
     @Test
+    @Ignore
     fun testStatistics() {
         // creating an instance of the FiveGame
         val thegame = FiveGame(5, 15, 2, java.util.Random(22))

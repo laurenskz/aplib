@@ -18,6 +18,7 @@ import org.jetbrains.kotlinx.dl.api.core.metric.Metrics
 import org.jetbrains.kotlinx.dl.api.core.optimizer.Adam
 import org.jetbrains.kotlinx.dl.dataset.Dataset
 import org.jetbrains.kotlinx.dl.dataset.OnHeapDataset
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.jupiter.api.Assertions.*
 import org.tensorflow.Operand
@@ -78,12 +79,13 @@ internal class PlaygroundTest {
     }
 
     @Test
+    @Ignore
     fun testKerasModel() {
         val basicModel = BasicModel()
         basicModel.description(1).let {
             basicModel.init(it)
             val dataset = OnHeapDataset.Companion.create(arrayOf(FloatArray(1) { 1f }, FloatArray(1) { 0f }), floatArrayOf(0.65f, 0.15f))
-            it.fit(dataset, epochs = 10000)
+            it.fit(dataset, epochs = 1000)
             println(it.evaluate(dataset))
             println(it.predictSoftly(FloatArray(1) { 1f }).toList())
             println(it.predictSoftly(FloatArray(1) { 0.01f }).toList())
@@ -91,6 +93,7 @@ internal class PlaygroundTest {
     }
 
     @Test
+    @Ignore
     fun testFittedVI() {
         val targets = listOf(100)
         val mdp = playgroundMDP(targets)
