@@ -31,6 +31,13 @@ fun <T> Distribution<T>.expectedValue(evaluator: (T) -> Double): Double {
     }.sum()
 }
 
+fun <T> Distribution<T>.expectedValue(samples: Int, random: Random, evaluator: (T) -> Double): Double {
+    return (0 until samples).map { this.sample(random).let(evaluator) }.average()
+}
+
+fun <T : Number> Distribution<T>.expectedValue(samples: Int, random: Random) = expectedValue(samples, random) { it.toDouble() }
+
+
 /**
  * All number distributions have an expected value
  */

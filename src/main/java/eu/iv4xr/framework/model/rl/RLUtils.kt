@@ -1,10 +1,13 @@
 package eu.iv4xr.framework.model.rl
 
 import eu.iv4xr.framework.model.ProbabilisticModel
-import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.distribution.expectedValue
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
+import eu.iv4xr.framework.model.rl.valuefunctions.Target
+import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
+import eu.iv4xr.framework.model.rl.valuefunctions.Valuefunction
+import kotlin.math.abs
 
 infix fun ClosedFloatingPointRange<Double>.sampleWithStepSize(step: Double) = Distributions.real(this.start, this.endInclusive, step)
 
@@ -58,6 +61,48 @@ fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.expectedRew
     return transition(state, action).expectedValue { newState ->
         reward(state, action, newState).expectedValue()
     }
+}
+
+fun <State : Identifiable, Action : Identifiable> MDP<State, Action>.qValue(state: State, action: Action, discountFactor: Double, valueFunction: Valuefunction<State>): Double {
+    return expectedReward(state, action) + discountFactor * transition(state, action).expectedValue { newState ->
+        if (isTerminal(newState)) 0.0 else
+            valueFunction.value(newState).toDouble()
+    }
+}
+
+fun <State : Identifiable, Action : Identifiable> expectedUpdate(state: State, gamma: Float, mdp: MDP<State, Action>, valueFunction: Valuefunction<State>): Target<State> {
+    return Target(state, mdp.possibleActions(state)
+            .maxOf { a -> mdp.qValue(state, a, gamma.toDouble(), valueFunction).toFloat() })
+}
+
+fun <State : Identifiable, Action : Identifiable> valueIterationSweep(states: List<State>, valueFunction: TrainableValuefunction<State>, mdp: MDP<State, Action>, gamma: Float): Float {
+    return states.maxOf {
+        val current = valueFunction.value(it)
+        val target = expectedUpdate(it, gamma, mdp, valueFunction)
+        valueFunction.train(target)
+        abs(current - target.target)
+    }
+}
+
+fun <State : Identifiable, Action : Identifiable> expectedUpdate(state: State, gamma: Float, mdp: MDP<State, Action>, valueFunction: Valuefunction<State>, lookAhead: Int = 0): Target<State> {
+    if (lookAhead == 0)
+        return Target(state, mdp.possibleActions(state)
+                .maxOf { a -> mdp.qValue(state, a, gamma.toDouble(), valueFunction).toFloat() })
+    val max = mdp.possibleActions(state).maxOf { a ->
+        mdp.transition(state, a).support().maxOf { sp ->
+            var total = mdp.reward(state, a, sp).expectedValue().toFloat()
+            if (!mdp.isTerminal(sp))
+                total += gamma * expectedUpdate(sp, gamma, mdp, valueFunction, lookAhead - 1).target
+            total
+        }
+    }
+    return Target(state, max)
+}
+
+fun <State : Identifiable, Action : Identifiable> bellmanResidual(states: List<State>, valueFunction: TrainableValuefunction<State>, mdp: MDP<State, Action>, gamma: Float): Double {
+    return valueFunction.values(states).zip(states).map { (v, s) ->
+        abs(expectedUpdate(s, gamma, mdp, valueFunction).target - v)
+    }.sum().toDouble()
 }
 
 

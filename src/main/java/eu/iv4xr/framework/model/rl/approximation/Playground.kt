@@ -6,6 +6,7 @@ import burlap.behavior.valuefunction.ValueFunction
 import eu.iv4xr.framework.model.ProbabilisticModel
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions
+import eu.iv4xr.framework.model.distribution.Distributions.uniform
 import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.model.distribution.times
 import eu.iv4xr.framework.model.rl.*
@@ -26,17 +27,17 @@ fun <T : Identifiable, A : Identifiable> stateActionWithGoalProgressFactory(wrap
 
 
 val combinedPlaygroundFactory: FeatureActionFactory<PlaygroundState, PlaygroundAction> = CompositeFeature(listOf(
-        DoubleFeature.from { (it.first.luck-it.first.badLuck) * it.second.betAmount },
+        DoubleFeature.from { (it.first.luck - it.first.badLuck) * it.second.betAmount },
 //        DoubleFeature.from { it.first.badLuck * it.second.betAmount },
 ))
 
 data class PlaygroundState(val tries: Int, val luck: Double, val badLuck: Double, val money: Int) : DataClassHashableState() {
     companion object {
         val factory: FeatureVectorFactory<PlaygroundState> = CompositeFeature(listOf(
-                IntFeature.from { it.tries },
+//                IntFeature.from { it.tries },
                 DoubleFeature.from { it.luck },
                 DoubleFeature.from { it.badLuck },
-                IntFeature.from { it.money }
+//                IntFeature.from { it.money }
         ))
     }
 }
@@ -52,6 +53,19 @@ fun playgroundMDP(targets: List<Int>) = NonTerminalRLMDP(Playground(), targets.m
 
 
 class Playground : ProbabilisticModel<PlaygroundState, PlaygroundAction> {
+
+    companion object {
+        val stateDist = ((0.0..1.0) sampleWithStepSize 0.1).chain { newLuck ->
+            ((0.0..1.0) sampleWithStepSize 0.1).chain { newBadLuck ->
+                ((0.0..1.0) sampleWithStepSize 0.001).chain { rand ->
+                    uniform(0..100).chain { index ->
+                        always(PlaygroundState(index, newLuck, newBadLuck, (rand * 1000).toInt()))
+                    }
+                }
+            }
+        }
+    }
+
     private val actions = sequenceOf(0, 100, 400, 200, 50, 30).map { PlaygroundAction(it) }
 
     override fun possibleStates(): Sequence<PlaygroundState> {

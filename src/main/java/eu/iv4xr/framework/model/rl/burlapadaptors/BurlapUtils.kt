@@ -136,7 +136,7 @@ interface DataClassAction : BurlapAction {
  */
 class GreedyQPolicyWithQValues(private val qProvider: QProvider) : GreedyQPolicy(qProvider), QProvider by qProvider {
     override fun actionProb(s: State?, a: Action?): Double {
-//        println(qValues(s).map { it.q })
+//        println(super.actionProb(s, a))
         return super.actionProb(s, a)
     }
 
@@ -147,7 +147,9 @@ class GreedyQPolicyWithQValues(private val qProvider: QProvider) : GreedyQPolicy
  */
 class BurlapPolicy<S : BurlapState, A : BurlapAction>(val policy: Policy, val mdp: MDP<S, A>) : eu.iv4xr.framework.model.rl.Policy<S, A> {
     override fun action(state: S) = Distributions.discrete(
-            mdp.possibleActions(state).associateWith { policy.actionProb(state, it) }
+            mdp.possibleActions(state).associateWith {
+                policy.actionProb(state, it)
+            }
     )
 }
 

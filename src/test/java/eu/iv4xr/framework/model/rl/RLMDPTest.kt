@@ -7,7 +7,6 @@ import eu.iv4xr.framework.model.rl.RLAgentTest.TestModelState.PIT
 import org.junit.jupiter.api.Test
 
 import org.junit.jupiter.api.Assertions.*
-import kotlin.math.PI
 
 internal class RLMDPTest {
 

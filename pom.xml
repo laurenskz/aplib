@@ -39,6 +39,27 @@
             <artifactId>gson</artifactId>
             <version>2.8.5</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/org.deeplearning4j/deeplearning4j-core -->
+        <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-core</artifactId>
+            <version>1.0.0-M1.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.kotlinx</groupId>
+            <artifactId>kotlin-deeplearning-api</artifactId>
+            <version>0.3.0</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.nd4j/nd4j-native -->
+        <dependency>
+            <groupId>org.nd4j</groupId>
+            <artifactId>nd4j-native</artifactId>
+            <version>1.0.0-M1.1</version>
+            <scope>test</scope>
+        </dependency>
+
 
         <!-- dependencies on JUnit-5 for unit testing -->
         <dependency>

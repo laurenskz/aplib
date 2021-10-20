@@ -15,9 +15,10 @@ import eu.iv4xr.framework.utils.allPossibleGoalStates
 open class RLMDP<State : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<State, Action>, private val goals: List<MDPGoal>) : MDP<StateWithGoalProgress<State>, Action> {
     override fun possibleStates() = model.possibleStates().flatMap { modelState -> allPossibleGoalStates(goals.size).map { StateWithGoalProgress(it, modelState) } }
 
+
     override fun possibleActions(state: StateWithGoalProgress<State>) = if (isTerminal(state)) emptySequence() else model.possibleActions(state.state)
 
-    override fun isTerminal(state: StateWithGoalProgress<State>) = model.isTerminal(state.state)
+    override fun isTerminal(state: StateWithGoalProgress<State>) = state.progress.all { it } || model.isTerminal(state.state)
 
     override fun transition(current: StateWithGoalProgress<State>, action: Action): Distribution<StateWithGoalProgress<State>> {
         if (isTerminal(current)) throw IllegalArgumentException("Can't perform action in terminal state")
