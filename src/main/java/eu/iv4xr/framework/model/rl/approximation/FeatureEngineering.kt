@@ -82,7 +82,7 @@ class ExtractFeature<T, V>(val factory: FeatureVectorFactory<V>, val lens: (T) -
 class RepeatedFeature<T>(val repetitions: Int, val factory: FeatureVectorFactory<T>) : FeatureVectorFactory<List<T>> {
 
     override fun setFrom(t: List<T>, result: DataBuffer, start: Int) {
-        for (i in (0 until max(repetitions, t.count()))) {
+        for (i in t.indices.filter { it < repetitions }) {
             factory.setFrom(t[i], result, start + i * factory.count())
         }
     }

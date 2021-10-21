@@ -35,6 +35,16 @@ class StateValueFunction2<S : Identifiable>(val model: ModelDescription, val fea
     }
 }
 
+class DownSampledValueFunction<S : Identifiable, R : Identifiable>(val valuefunction: TrainableValuefunction<R>, val downSampler: (S) -> R) : TrainableValuefunction<S> {
+    override fun value(state: S): Float {
+        return valuefunction.value(downSampler(state))
+    }
+
+    override fun train(target: Target<S>) {
+        valuefunction.train(Target(downSampler(target.state), target.target))
+    }
+}
+
 class QTable<S : DataClassHashableState, A : DataClassAction>(val learningRate: Float) : TrainableQFunction<S, A> {
     val qValues = mutableMapOf<Pair<S, A>, Float>()
     override fun qValue(state: S, action: A): Float {

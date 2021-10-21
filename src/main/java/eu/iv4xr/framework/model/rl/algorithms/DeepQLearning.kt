@@ -262,7 +262,7 @@ class Bab<S : DataClassHashableState, A : Identifiable>(val valuefunction: Train
         do {
             val delta = valueIterationSweep(value.states, value, mdp, gamma)
             println(delta)
-        } while (delta > 0.01)
+        } while (delta > 0.001)
         println(bellmanResidual(value.states, value, mdp, gamma))
         println(value.targets.size)
         valuefunction.train(value.targets)
@@ -343,6 +343,8 @@ class PolicyBasedExperienceGenerator<S : Identifiable, A : Identifiable>(
         }
                 .takeWhile { System.currentTimeMillis() < time + totalTime.toMillis() }
                 .maxByOrNull { it.totalReward(gamma.toDouble()) }
+        println(episode?.totalReward(gamma.toDouble()))
+        println((episode?.steps?.map { it.transitionProb }))
         return episode?.steps?.map { Sample(it.sp, it.s, it.transitionProb, it.r) } ?: emptyList()
     }
 }

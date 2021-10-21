@@ -13,7 +13,8 @@ import eu.iv4xr.framework.model.rl.valuefunctions.QFunction
 class GreedyPolicy<S : Identifiable, A : Identifiable>(val qFunction: QFunction<S, A>, val mdp: MDP<S, A>) : Policy<S, A> {
 
     override fun action(state: S): Distribution<A> {
-        val action = qFunction.qForActions(state, mdp.possibleActions(state).toList()).maxByOrNull { it.second }
+        val qForActions = qFunction.qForActions(state, mdp.possibleActions(state).toList())
+        val action = qForActions.maxByOrNull { it.second }
                 ?: error("No element found")
         return always(action.first)
     }
