@@ -248,24 +248,24 @@ class Bab<S : DataClassHashableState, A : Identifiable>(val valuefunction: Train
                                                         val random: Random,
                                                         val episodes: Int) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
-        val value = ValueTable<S>(1.0f)
-        val policy = GreedyPolicy(QFromValue(value, mdp, gamma), mdp)
+//        val value = ValueTable<S>(1.0f)
+//        val policy = GreedyPolicy(QFromValue(value, mdp, gamma), mdp)
         repeat(episodes) {
             val sampleEpisode = mdp.sampleEpisode(RandomPolicy(mdp), random, 100000)
             if (sampleEpisode.totalReward(gamma.toDouble()) > 0.01)
                 sampleEpisode.steps.reversed().forEach { sars ->
-                    value.train(expectedUpdate(sars.s, gamma, mdp, value))
+                    valuefunction.train(expectedUpdate(sars.s, gamma, mdp, valuefunction))
                 }
 
         }
-        println(bellmanResidual(value.states, value, mdp, gamma))
-        do {
-            val delta = valueIterationSweep(value.states, value, mdp, gamma)
-            println(delta)
-        } while (delta > 0.001)
-        println(bellmanResidual(value.states, value, mdp, gamma))
-        println(value.targets.size)
-        valuefunction.train(value.targets)
+//        println(bellmanResidual(value.states, value, mdp, gamma))
+//        do {
+//            val delta = valueIterationSweep(value.states, value, mdp, gamma)
+//            println(delta)
+//        } while (delta > 0.001)
+//        println(bellmanResidual(value.states, value, mdp, gamma))
+//        println(value.targets.size)
+//        valuefunction.train(value.targets)
         return GreedyPolicy(QFromValue(valuefunction, mdp, gamma), mdp)
     }
 }
@@ -378,28 +378,27 @@ class PriorityBased<S : DataClassHashableState, A : Identifiable>(
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
         val stateInformation = StateInformation<S>(10000)
         val predecessorCache = PredecessorCache<S>()
-        val table = ValueTable<S>(1f)
         repeat(episodes) {
             println(it)
             val states = experienceGenerator.generate(mdp)
             createGraph(states, predecessorCache)
-            incorporateRewards(states, stateInformation, predecessorCache, mdp, table)
-            updateStates(stateInformation, predecessorCache, mdp, table)
+            incorporateRewards(states, stateInformation, predecessorCache, mdp, valueFunction)
+            updateStates(stateInformation, predecessorCache, mdp, valueFunction)
 
         }
-        println(table.targets.size)
-        println("Training the value function now!")
-        valueFunction.train(table.targets)
+//        println(table.targets.size)
+//        println("Training the value function now!")
+//        valueFunction.train(table.targets)
         return GreedyPolicy(QFromValue(valueFunction, mdp, gamma), mdp)
     }
 
-    private fun updateStates(stateInformation: StateInformation<S>, predecessorCache: PredecessorCache<S>, mdp: MDP<S, A>, table: ValueTable<S>) {
+    private fun updateStates(stateInformation: StateInformation<S>, predecessorCache: PredecessorCache<S>, mdp: MDP<S, A>, table: TrainableValuefunction<S>) {
         while (!stateInformation.isEmpty) {
             process(stateInformation.take(), stateInformation, predecessorCache, mdp, table)
         }
     }
 
-    private fun incorporateRewards(states: List<Sample<S>>, stateInformation: StateInformation<S>, predecessorCache: PredecessorCache<S>, mdp: MDP<S, A>, table: ValueTable<S>) {
+    private fun incorporateRewards(states: List<Sample<S>>, stateInformation: StateInformation<S>, predecessorCache: PredecessorCache<S>, mdp: MDP<S, A>, table: TrainableValuefunction<S>) {
         states.filter { it.reward > 0 }.forEach {
             process(it.predecessor, stateInformation, predecessorCache, mdp, table)
         }
