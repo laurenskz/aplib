@@ -16,7 +16,13 @@ import eu.iv4xr.framework.model.rl.approximation.FeatureVectorFactory
 import eu.iv4xr.framework.model.rl.valuefunctions.QFunction
 import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
+import org.tensorflow.*
 import kotlin.math.exp
+import org.tensorflow.op.Ops;
+import org.tensorflow.op.core.Placeholder;
+import org.tensorflow.op.math.Add;
+import org.tensorflow.op.nn.Softmax
+import org.tensorflow.types.TInt32;
 
 class GreedyPolicy<S : Identifiable, A : Identifiable>(val qFunction: QFunction<S, A>, val mdp: MDP<S, A>) : Policy<S, A> {
 
@@ -42,7 +48,7 @@ class EGreedyPolicy<S : Identifiable, A : Identifiable>(val epsilon: Double, val
 }
 
 
-class LinearStateValueFunction<S : Identifiable, A : Identifiable>(
+class LinearStateValueFunction<S : Identifiable>(
         val factory: FeatureVectorFactory<S>,
         val learningRate: Double
 ) : TrainableValuefunction<S> {
@@ -82,8 +88,10 @@ class SoftmaxPolicy<S : Identifiable, A : Identifiable>(
         return sum
     }
 
+    inline private fun gradPreference(state: S, action: A) = factory.features(state to action)
+
     override fun update(target: PolicyGradientTarget<S, A>) {
-        var gradLog = factory.features(target.s to target.a)
+        var gradLog = gradPreference(target.s, target.a)
         val policy = action(target.s)
         policy.support().forEach {
             val score = policy.score(it)
@@ -93,7 +101,7 @@ class SoftmaxPolicy<S : Identifiable, A : Identifiable>(
             }
         }
         gradLog.indices.forEach {
-            weights[it] += learningRate * gradLog[it]
+            weights[it] += learningRate * gradLog[it] * target.update
         }
     }
 
@@ -101,5 +109,12 @@ class SoftmaxPolicy<S : Identifiable, A : Identifiable>(
         val unnormalized = mdp.possibleActions(state).associate { it to exp(preference(state, it)) }
         val sum = unnormalized.values.sum()
         return Distributions.discrete(unnormalized.mapValues { it.value / sum })
+    }
+}
+
+class Test(){
+    fun bab() {
+        val graph = Graph()
+
     }
 }

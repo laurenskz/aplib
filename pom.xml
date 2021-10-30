@@ -50,6 +50,18 @@
             <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlin-deeplearning-api</artifactId>
             <version>0.3.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.tensorflow</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.tensorflow</groupId>
+            <artifactId>tensorflow-core-platform</artifactId>
+            <version>0.3.3</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.nd4j/nd4j-native -->
@@ -96,7 +108,6 @@
             <version>1.5.31</version>
             <scope>compile</scope>
         </dependency>
-
 
 
     </dependencies>

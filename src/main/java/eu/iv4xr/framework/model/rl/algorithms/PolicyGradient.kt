@@ -25,16 +25,22 @@ class ActorCritic<S : Identifiable, A : Identifiable>(
 ) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
         repeat(episodes) {
+            println("Doing episode $it")
             var i = 1.0
             var state = mdp.initialState().sample(random)
+            var total = 0.0
             while (!mdp.isTerminal(state)) {
                 val sars = mdp.sampleSARS(policy, state, random)
                 val target = sars.r + gamma * if (mdp.isTerminal(sars.sp)) 0f else valueFunction.value(sars.sp)
-                valueFunction.train(Target(state, target.toFloat()))
-                policy.update(PolicyGradientTarget(state, sars.a, i * target - valueFunction.value(state)))
+                if (target > 0.001) {
+                    valueFunction.train(Target(state, target.toFloat()))
+                    policy.update(PolicyGradientTarget(state, sars.a, i * target - valueFunction.value(state)))
+                }
+                total += sars.r * i
                 i *= gamma
                 state = sars.sp
             }
+            println("Reward was $total")
         }
         return policy
     }

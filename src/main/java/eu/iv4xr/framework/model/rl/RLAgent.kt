@@ -28,7 +28,6 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
     private var timeStep = 0
 
     fun trainWith(alorithm: RLAlgorithm<StateWithGoalProgress<ModelState>, Action>): RLAgent<ModelState, Action> {
-        mdp = createRlMDP(model, goal)
         policy = alorithm.train(mdp)
         return this
     }
@@ -45,6 +44,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
 
     override fun setGoal(g: GoalStructure?): RLAgent<ModelState, Action> {
         goal = g
+        mdp = createRlMDP(model, goal)
         return this
     }
 
@@ -69,6 +69,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
             val goalProgress = convert(goal) { it.status.success() }
             val stateWithProgress = StateWithGoalProgress(goalProgress, modelState)
             val action = policy.action(stateWithProgress)
+            println(action.supportWithDensities())
             val sampledAction = action.sample(random)
             transitions.steps.add(Transition(modelState, sampledAction))
             val proposal = model.executeAction(sampledAction, state)

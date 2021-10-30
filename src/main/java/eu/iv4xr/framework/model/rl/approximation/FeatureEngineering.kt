@@ -2,12 +2,27 @@ package eu.iv4xr.framework.model.rl.approximation
 
 import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.spatial.Vec3
+import org.tensorflow.ndarray.FloatNdArray
+import org.tensorflow.types.TFloat32
 import kotlin.math.max
 import kotlin.reflect.KClass
 import kotlin.reflect.safeCast
 
 interface DataBuffer {
     fun set(index: Int, value: Double)
+}
+
+class TensorBuffer(val tensor: TFloat32, val dims: LongArray) : DataBuffer {
+    override fun set(index: Int, value: Double) {
+        tensor.setFloat(value.toFloat(), *dims, index.toLong())
+    }
+
+}
+
+class NDArrayBuffer(val buffer: FloatNdArray, val dims: LongArray) : DataBuffer {
+    override fun set(index: Int, value: Double) {
+        buffer.setFloat(value.toFloat(), *dims, index.toLong())
+    }
 }
 
 class FloatBuffer(val array: FloatArray) : DataBuffer {
@@ -25,6 +40,8 @@ class DoubleBuffer(val array: DoubleArray) : DataBuffer {
 interface FeatureVectorFactory<T> {
     fun features(t: T): DoubleArray = DoubleArray(count()).also { setFrom(t, DoubleBuffer(it), 0) }
     fun floatFeatures(t: T): FloatArray = FloatArray(count()).also { setFrom(t, FloatBuffer(it), 0) }
+    fun setTensorFeatures(t: T, tensor: TFloat32, index: LongArray) = tensor.also { setFrom(t, TensorBuffer(it, index), 0) }
+    fun setNdArrayFeatures(t: T, tensor: FloatNdArray, index: LongArray) = tensor.also { setFrom(t, NDArrayBuffer(it, index), 0) }
     fun setFrom(t: T, result: DataBuffer, start: Int)
     fun count(): Int
 }
@@ -47,9 +64,11 @@ open class FeatureOwner<T>(val factory: FeatureVectorFactory<T>) : Identifiable
 fun <T : FeatureOwner<T>> T.features() = factory.features(this)
 
 class OneHot<T>(val ts: List<T>) : FeatureVectorFactory<T> {
+    private val map = ts.mapIndexed { i, t -> t to i }.toMap()
 
     override fun setFrom(t: T, result: DataBuffer, start: Int) {
-        ts.forEachIndexed { i, tp -> result.set(i + start, if (t == tp) 1.0 else 0.0) }
+        val index = map[t] ?: return
+        result.set(start + index, 1.0)
     }
 
     override fun count(): Int {
@@ -143,6 +162,7 @@ infix fun <T : Any, V : T> KClass<V>.with(factory: FeatureVectorFactory<V>) = Op
 
 
 open class CompositeFeature<T>(val featureVectorFactories: List<FeatureVectorFactory<T>>) : FeatureVectorFactory<T> {
+    private val count = featureVectorFactories.sumBy { it.count() }
 
     override fun setFrom(t: T, result: DataBuffer, start: Int) {
         var count = 0
@@ -153,7 +173,7 @@ open class CompositeFeature<T>(val featureVectorFactories: List<FeatureVectorFac
     }
 
     override fun count(): Int {
-        return featureVectorFactories.sumBy { it.count() }
+        return count
     }
 }
 

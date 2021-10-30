@@ -2,30 +2,12 @@ package eu.iv4xr.framework.model.rl.approximation
 
 import eu.iv4xr.framework.model.rl.StateWithGoalProgress
 import eu.iv4xr.framework.model.rl.ai.BasicModel
-import eu.iv4xr.framework.model.rl.ai.TensorflowValueFunction
-import eu.iv4xr.framework.model.rl.algorithms.GreedyAlg
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
 import eu.iv4xr.framework.model.rl.sampleWithStepSize
 import eu.iv4xr.framework.model.utils.DeterministicRandom
-import nl.uu.cs.aplib.exampleUsages.fiveGame.Optimal
-import org.jetbrains.kotlinx.dl.api.core.KGraph
-import org.jetbrains.kotlinx.dl.api.core.Sequential
-import org.jetbrains.kotlinx.dl.api.core.layer.Layer
-import org.jetbrains.kotlinx.dl.api.core.layer.core.Dense
-import org.jetbrains.kotlinx.dl.api.core.layer.core.Input
-import org.jetbrains.kotlinx.dl.api.core.loss.Losses
-import org.jetbrains.kotlinx.dl.api.core.metric.Metrics
-import org.jetbrains.kotlinx.dl.api.core.optimizer.Adam
-import org.jetbrains.kotlinx.dl.dataset.Dataset
 import org.jetbrains.kotlinx.dl.dataset.OnHeapDataset
 import org.junit.Ignore
 import org.junit.Test
-import org.junit.jupiter.api.Assertions.*
-import org.tensorflow.Operand
-import org.tensorflow.Shape
-import org.tensorflow.op.Ops
-import org.tensorflow.op.summary.SummaryWriter
-import java.io.File
 
 internal class PlaygroundTest {
 
