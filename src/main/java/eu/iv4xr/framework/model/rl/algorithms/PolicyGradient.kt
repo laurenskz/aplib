@@ -8,6 +8,8 @@ import eu.iv4xr.framework.model.rl.Policy
 import eu.iv4xr.framework.model.rl.RLAlgorithm
 import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
+import java.io.OutputStream
+import java.io.PrintWriter
 import kotlin.random.Random
 
 data class PolicyGradientTarget<S : Identifiable, A : Identifiable>(val s: S, val a: A, val update: Double)
@@ -16,16 +18,33 @@ interface ModifiablePolicy<S : Identifiable, A : Identifiable> : Policy<S, A> {
     fun updateAll(targets: List<PolicyGradientTarget<S, A>>) = targets.forEach(::update)
 }
 
+interface RewardLogger {
+    fun episodeReward(episode: Int, reward: Float)
+}
+
+class NoOpRewardLogger : RewardLogger {
+    override fun episodeReward(episode: Int, reward: Float) {
+    }
+
+}
+
+class PrintRewardLogger(val outputStream: OutputStream) : RewardLogger {
+    val writer = PrintWriter(outputStream)
+    override fun episodeReward(episode: Int, reward: Float) {
+        writer.println("Episode $episode, reward:$reward")
+    }
+}
+
 class ActorCritic<S : Identifiable, A : Identifiable>(
         val policy: ModifiablePolicy<S, A>,
         val valueFunction: TrainableValuefunction<S>,
         val random: Random,
         val gamma: Double,
-        val episodes: Int
+        val episodes: Int,
+        val rewardLogger: RewardLogger = NoOpRewardLogger()
 ) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
         repeat(episodes) {
-            println("Doing episode $it")
             var i = 1.0
             var state = mdp.initialState().sample(random)
             var total = 0.0
@@ -40,7 +59,7 @@ class ActorCritic<S : Identifiable, A : Identifiable>(
                 i *= gamma
                 state = sars.sp
             }
-            println("Reward was $total")
+            rewardLogger.episodeReward(it, total.toFloat())
         }
         return policy
     }

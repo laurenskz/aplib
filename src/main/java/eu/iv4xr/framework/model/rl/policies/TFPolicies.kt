@@ -6,14 +6,14 @@ import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.MDP
 import eu.iv4xr.framework.model.rl.algorithms.ModifiablePolicy
 import eu.iv4xr.framework.model.rl.algorithms.PolicyGradientTarget
+import eu.iv4xr.framework.model.rl.algorithms.RewardLogger
 import eu.iv4xr.framework.model.rl.approximation.FeatureVectorFactory
 import org.tensorflow.*
 import org.tensorflow.framework.Summary
 import org.tensorflow.framework.SummaryMetadata
 import org.tensorflow.ndarray.FloatNdArray
 import org.tensorflow.ndarray.NdArrays
-import org.tensorflow.ndarray.Shape.UNKNOWN_SIZE
-import org.tensorflow.ndarray.Shape.of
+import org.tensorflow.ndarray.Shape.*
 import org.tensorflow.op.Op
 import org.tensorflow.op.Ops
 import org.tensorflow.op.RawOp
@@ -24,6 +24,7 @@ import org.tensorflow.op.summary.*
 import org.tensorflow.proto.framework.RunOptions
 import org.tensorflow.types.TFloat32
 import org.tensorflow.types.TInt32
+import org.tensorflow.types.TInt64
 import org.tensorflow.types.TString
 import java.io.File
 import java.io.FileOutputStream
@@ -48,11 +49,12 @@ fun TFloat32.print() {
     }
 }
 
-class TFPolicy<State : Identifiable, A : Identifiable>(val factory: FeatureVectorFactory<State>, val mdp: MDP<State, A>, val lr: Float) : ModifiablePolicy<State, A> {
+class TFPolicy<State : Identifiable, A : Identifiable>(val factory: FeatureVectorFactory<State>, val mdp: MDP<State, A>, val lr: Float, val tensorboardSteps: Int = 100, val logDir: String? = null) : ModifiablePolicy<State, A> {
 
     val actions = mdp.allPossibleActions().toList()
     val indices = actions.mapIndexed { i, a -> a to i }.toMap()
-    val sessioned = Sessioned(SoftmaxModel(factory.count().toLong(), actions.size.toLong(), Sequential()))
+    val sessioned = Sessioned(SoftmaxModel(factory.count().toLong(), actions.size.toLong(), Sequential()), logDir)
+    var updateCounter = 0L
 
     override fun update(target: PolicyGradientTarget<State, A>) {
         updateAll(listOf(target))
@@ -64,13 +66,17 @@ class TFPolicy<State : Identifiable, A : Identifiable>(val factory: FeatureVecto
         val actions = TInt32.vectorOf(*IntArray(targets.size) {
             indices[targets[it].a] ?: error("Unrecognized action")
         })
-        sessioned.session.runner()
+        var runner = sessioned.session.runner()
+                .fetch(sessioned.globalStep)
                 .feed(sessioned.input(SoftmaxModel.Holders.INPUT_FEATURES), input)
                 .feed(sessioned.input(SoftmaxModel.Holders.INPUT_LR), lr)
                 .feed(sessioned.input(SoftmaxModel.Holders.INPUT_ACTIONS), actions)
                 .addTarget(sessioned.op(SoftmaxModel.Holders.TRAIN_OP))
-                .addTarget(sessioned.summary)
-                .run()
+                .addTarget(sessioned.incGlobal)
+        if (updateCounter % tensorboardSteps == 0L && sessioned.logDir != null) {
+            runner.addTarget(sessioned.summary)
+        }
+        updateCounter = (runner.run().first() as TInt64).getLong()
     }
 
     private fun createInputs(count: Long, sequence: Sequence<State>): Tensor {
@@ -93,12 +99,13 @@ class TFPolicy<State : Identifiable, A : Identifiable>(val factory: FeatureVecto
                 .fetch(sessioned.output(SoftmaxModel.Holders.SOFTMAX_OUT))
                 .run().first() as TFloat32
         return (state.indices).map { stateIndex ->
+            val possibleActions = mdp.possibleActions(state[stateIndex]).toSet()
             discrete(
                     actions.mapIndexed { actionIndex, a ->
                         a to softmaxed.getFloat(stateIndex.toLong(), actionIndex.toLong()).toDouble()
                     }.toMap()
             ).filter {
-                it in mdp.possibleActions(state[stateIndex])
+                it in possibleActions
             }
         }
     }
@@ -152,42 +159,64 @@ fun logGradientStep(model: Model, actionCount: Int, y: Operand<TFloat32>, lr: Op
     val gradients = tf.gradients(listOf(toGrad), model.variables)
     val trainSteps = model.variables.zip(gradients).map {
         val delta = tf.math.mul(lr, it.second as Operand<TFloat32>)
-        model.logs.add(tf.summary.histogramSummary(tf.constant("Gradient delta ${it.first.op().name()}"), delta))
+//        model.logs.add(tf.summary.histogramSummary(tf.constant("Gradient delta ${it.first.op().name()}"), delta))
 //        model.logs.add(tf.summary.histogramSummary(tf.constant("Variable ${it.first.op().name()}"), it.first))
         tf.assignAdd(it.first, delta)
     }
     return tf.merge(trainSteps.toMutableList())
 }
 
-class Sessioned(builder: ModelDefBuilder) {
+class TFRewardLogger(val sessioned: Sessioned, val writeEpisodes: Int = 100) : RewardLogger {
+    val rewardIn = sessioned.tf.placeholder(TFloat32::class.java, Placeholder.shape(scalar()))
+    val episodeIn = sessioned.tf.placeholder(TInt64::class.java, Placeholder.shape(scalar()))
+    val writeSummary = WriteScalarSummary.create(sessioned.tf.scope(),
+            sessioned.writer,
+            episodeIn,
+            sessioned.tf.constant("Reward"),
+            rewardIn)
+
+    override fun episodeReward(episode: Int, reward: Float) {
+        if (episode % writeEpisodes == 0)
+            sessioned.session.runner()
+                    .feed(rewardIn, TFloat32.scalarOf(reward))
+                    .feed(episodeIn, TInt64.scalarOf(episode.toLong()))
+                    .addTarget(writeSummary)
+                    .run()
+
+    }
+}
+
+class Sessioned(builder: ModelDefBuilder, val logDir: String?) {
     val graph = Graph()
-    val tf = Ops.create(graph)
+    var tf = Ops.create(graph)
     val session: Session
     val model = Model(mutableListOf(), tf, mutableListOf())
     private val signature = builder.create(model)
     val summary: Op
+    val writer: SummaryWriter
+    val globalStep = tf.variable(tf.constant(0L))
+    val incGlobal = tf.assignAdd(globalStep, tf.constant(1L))
 
     init {
         session = Session(graph)
-        session.run(tf.init())
-        println(signature.inputs.mapValues { it.value.asOutput().name() })
-        println(signature.methods.mapValues { it.value.op().name() })
-
-        val writer = SummaryWriter.create(tf.scope())
+        writer = SummaryWriter.create(tf.scope())
         val create = CreateSummaryFileWriter.create(
                 tf.scope(),
                 writer,
-                tf.constant("summarieszz"),
+                tf.constant(logDir ?: ""),
                 tf.constant(0),
                 tf.constant(0),
                 tf.constant(".out")
         )
+        graph.addInitializer(create)
         val merged = tf.summary.mergeSummary(model.logs)
-        summary = WriteRawProtoSummary.create(tf.scope(),
+        val writeSummary = WriteRawProtoSummary.create(tf.scope(),
                 writer,
-                tf.constant(0L),
+                globalStep,
                 merged)
-        session.run(create)
+        summary = writeSummary
+        session.run(tf.init())
+
     }
 
     fun input(any: Any): Operand<*> {
@@ -210,6 +239,8 @@ interface ModelDefBuilder {
     fun create(model: Model): ModelOperations
 }
 
+//class ICM()
+
 
 class SoftmaxModel(val inputSize: Long, val finalOutput: Long, val layer: Layer) : ModelDefBuilder {
 
@@ -230,11 +261,8 @@ class SoftmaxModel(val inputSize: Long, val finalOutput: Long, val layer: Layer)
         val raw = rawLayer(finalOutput).transform(model, second)
         model.logs.add(tf.summary.histogramSummary(tf.constant("input"), input))
         val softmaxed = tf.nn.softmax(raw)
-        val trainStep = logGradientStep(model, finalOutput.toInt(), raw, lr, actions)
-//        model.logs.add(tf.summary.histogramSummary(tf.constant("Input"), input))
-//        model.logs.add(tf.summary.histogramSummary(tf.constant("Action"), actions))
-//        model.logs.add(tf.summary.histogramSummary(tf.constant("Softmax"), softmaxed))
-//        model.logs.add(tf.summary.histogramSummary(tf.constant("Raw"), raw))
+        model.logs.add(tf.summary.histogramSummary(tf.constant("Action prob"), softmaxed))
+        val trainStep = logGradientStep(model.copy(tf = tf.withSubScope("optimizer")), finalOutput.toInt(), raw, lr, actions)
         return ModelOperations(
                 mapOf(Holders.INPUT_LR to lr, Holders.INPUT_FEATURES to input, Holders.INPUT_ACTIONS to actions),
                 mapOf(Holders.SOFTMAX_OUT to softmaxed),
