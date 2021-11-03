@@ -37,6 +37,10 @@ interface MDP<State : Identifiable, Action : Identifiable> {
 
     fun sampleSARS(policy: Policy<State, Action>, state: State, random: Random): BurlapAlgorithms.SARS<State, Action> {
         val action = policy.action(state).sample(random)
+        return executeAction(action, state, random)
+    }
+
+    fun executeAction(action: Action, state: State, random: Random): BurlapAlgorithms.SARS<State, Action> {
         val transition = transition(state, action)
         val sp = transition.sample(random)
         val r = reward(state, action, sp).sample(random)

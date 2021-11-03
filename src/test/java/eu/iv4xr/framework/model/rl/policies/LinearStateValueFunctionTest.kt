@@ -91,15 +91,19 @@ internal class LinearStateValueFunctionTest {
                 ActionTest(2.0),
                 ActionTest(3.0),
         ))
-        val policy = TFPolicy(StateTest.factory, mdp, 0.1f,logDir = null)
-        val state = StateTest(1.0, 1.0, 1.0)
+        val policy = TFPolicy(StateTest.factory, mdp, 0.1f, logDir = null, batchSize = 2)
+        val state = StateTest(0.0, 1.0, 0.0)
+        val state2 = StateTest(1.0, 0.0, 0.0)
         println(policy.action(state).supportWithDensities())
+        println(policy.action(state2).supportWithDensities())
+//        policy.update(PolicyGradientTarget(state, ActionTest(0.0), 0.9))
+//        policy.update(PolicyGradientTarget(state2, ActionTest(1.0), 0.9))
+//        println(policy.action(state).supportWithDensities())
+//        println(policy.action(state2).supportWithDensities())
+        policy.updateAll(listOf(PolicyGradientTarget(state, ActionTest(0.0), 1000.0), PolicyGradientTarget(state2, ActionTest(1.0), 1000.0)))
         println(policy.action(state).supportWithDensities())
-        println(policy.action(state).supportWithDensities())
-        policy.update(PolicyGradientTarget(state, ActionTest(0.0), 0.0))
-        println(policy.action(state).supportWithDensities())
-        policy.update(PolicyGradientTarget(state, ActionTest(1.0), 0.0))
-        println(policy.action(state).supportWithDensities())
+        println(policy.action(state2).supportWithDensities())
+
     }
 
 
