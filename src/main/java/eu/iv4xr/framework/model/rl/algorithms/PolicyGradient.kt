@@ -11,6 +11,7 @@ import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
 import java.io.OutputStream
 import java.io.PrintWriter
+import kotlin.math.absoluteValue
 import kotlin.math.ceil
 import kotlin.random.Random
 
@@ -71,12 +72,12 @@ class ActorCritic<S : Identifiable, A : Identifiable>(
                 val statesPrime = sars.map { it.sp }
                 val values = valueFunction.values(statesPrime)
                 val targets = actions.indices.map { sars[it].r + gamma * if (mdp.isTerminal(statesPrime[it])) 0f else values[it] }
-                if (targets.maxOrNull() ?: 0.0 > 0.001) {
+                val baseLines = valueFunction.values(states)
+                val updates = targets.indices.map { i * targets[it] - baseLines[it] }
+                if (updates.any { it.absoluteValue > 0.001 }) {
                     valueFunction.train(targets.indices.map {
                         Target(states[it], targets[it].toFloat())
                     })
-                    val baseLines = valueFunction.values(states)
-                    val updates = targets.indices.map { i * targets[it] - baseLines[it] }
                     policy.updateAll(updates.indices.map { PolicyGradientTarget(states[it], actions[it], updates[it]) })
                 }
                 for (index in total.indices) {
@@ -124,7 +125,7 @@ class CuriosityDriven<S : Identifiable, A : Identifiable>(
                 valueFunction.train(targets.indices.map {
                     Target(states[it], targets[it].toFloat())
                 })
-                val updates = targets.indices.map { i * targets[it] - baseLines[it] }
+                val updates = targets.indices.map { if (mdp.isTerminal(states[it])) 0.0 else i * targets[it] - baseLines[it] }
 
                 policy.updateAll(updates.indices.map { PolicyGradientTarget(states[it], actions[it], updates[it]) })
                 for (index in total.indices) {

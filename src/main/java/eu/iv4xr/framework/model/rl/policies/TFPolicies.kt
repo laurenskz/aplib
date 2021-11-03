@@ -116,13 +116,11 @@ class TFPolicy<State : Identifiable, A : Identifiable>(val factory: FeatureVecto
                 .run().first() as TFloat32
         return (state.indices).map { stateIndex ->
             val possibleActions = mdp.possibleActions(state[stateIndex]).toSet()
-            val all = discrete(
+            discrete(
                     actions.mapIndexed { actionIndex, a ->
                         a to softmaxed.getFloat(stateIndex.toLong(), actionIndex.toLong()).toDouble()
                     }.toMap()
-            )
-            val z = all.supportWithDensities()
-            all.filter {
+            ).filter {
                 it in possibleActions
             }
         }

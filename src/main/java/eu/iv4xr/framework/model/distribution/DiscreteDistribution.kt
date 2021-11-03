@@ -34,6 +34,9 @@ class DiscreteDistribution<T>(val values: Map<T, Double>, private val tolerance:
      */
     override fun filter(predicate: (T) -> Boolean): Distribution<T> {
         val kept = values.filterKeys(predicate)
+        if (kept.size == 1) {
+            println("hi!")
+        }
         val total = kept.values.sum()
         val scaled = kept.mapValues { it.value / total }
         return DiscreteDistribution(scaled)

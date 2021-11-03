@@ -64,7 +64,7 @@ class NonTerminalRLMDP<State : Identifiable, Action : Identifiable>(private val 
     }
 
     override fun possibleActions(state: StateWithGoalProgress<State>): Sequence<Action> {
-        if (isTerminal(state)) return sequenceOf(allPossibleActions().first())
+        if (isTerminal(state)) return allPossibleActions()
         return super.possibleActions(state)
     }
 }
