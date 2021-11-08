@@ -10,12 +10,10 @@ import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
 import eu.iv4xr.framework.model.rl.policies.GreedyPolicy
 import eu.iv4xr.framework.model.rl.valuefunctions.*
-import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import eu.iv4xr.framework.model.utils.IndexMinPQ
 import org.jetbrains.kotlinx.dl.api.core.GraphTrainableModel
 import org.jetbrains.kotlinx.dl.dataset.OnHeapDataset
 import java.time.Duration
-import java.util.*
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -186,7 +184,7 @@ class AllActionOutputQModel<S : Identifiable, A : Identifiable>(val model: Model
 //    }
 //}
 
-class DeepQLearning<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunction<S, A>, val random: Random, val gamma: Float, val batchSize: Int, val trainIterations: Int, val epsilon: Double, val targetCreator: TargetCreator<S, A> = TDTargetCreator(qFunction, gamma)) : RLAlgorithm<S, A> {
+class DeepQLearning<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunction<S, A>, val random: Random, val gamma: Float, val batchSize: Int, val trainIterations: Int, val epsilon: Double, val QTargetCreator: QTargetCreator<S, A> = TDQTargetCreator(qFunction, gamma)) : RLAlgorithm<S, A> {
 
     override fun train(mdp: MDP<S, A>): GreedyPolicy<S, A> {
         val memory = mutableListOf<BurlapAlgorithms.Episode<S, A>>()
@@ -204,19 +202,19 @@ class DeepQLearning<S : Identifiable, A : Identifiable>(val qFunction: Trainable
     private fun performTraining(i: Int, memory: List<BurlapAlgorithms.Episode<S, A>>, mdp: MDP<S, A>) {
         if (i > batchSize && (i % 4) == 0) {
             val samples = memory.takeRandom(batchSize, random)
-            val targets = targetCreator.createTargets(samples, mdp)
+            val targets = QTargetCreator.createTargets(samples, mdp)
             qFunction.train(targets)
         }
     }
 }
 
-class DeepSARSA<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunction<S, A>, val random: Random, val gamma: Float, val episodes: Int, val n: Int, val targetCreator: TargetCreator<S, A> = NStepTDTargetCreator(qFunction, gamma, n)) : RLAlgorithm<S, A> {
+class DeepSARSA<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunction<S, A>, val random: Random, val gamma: Float, val episodes: Int, val n: Int, val QTargetCreator: QTargetCreator<S, A> = NStepTDQTargetCreator(qFunction, gamma, n)) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
         val greedy = GreedyPolicy(qFunction, mdp)
         val policy = EGreedyPolicy(1.0, mdp, greedy)
         (0..episodes).forEach {
             println(it)
-            qFunction.train(targetCreator.createTargets(listOf(mdp.sampleEpisode(policy, random)), mdp))
+            qFunction.train(QTargetCreator.createTargets(listOf(mdp.sampleEpisode(policy, random)), mdp))
             policy.epsilon = 1.0 - (it / episodes.toDouble())
         }
         return greedy
@@ -224,7 +222,7 @@ class DeepSARSA<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFun
 
 }
 
-class DeepBaba<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunction<S, A>, val random: Random, val gamma: Float, val episodes: Int, val targetCreator: TargetCreator<S, A> = NStepTDTargetCreator(qFunction, gamma, Int.MAX_VALUE), val maxSteps: Int = 1000) : RLAlgorithm<S, A> {
+class DeepBaba<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunction<S, A>, val random: Random, val gamma: Float, val episodes: Int, val QTargetCreator: QTargetCreator<S, A> = NStepTDQTargetCreator(qFunction, gamma, Int.MAX_VALUE), val maxSteps: Int = 1000) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
         val greedy = GreedyPolicy(qFunction, mdp)
         val policy = EGreedyPolicy(1.0, mdp, greedy)
@@ -237,7 +235,7 @@ class DeepBaba<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunc
             val sample = samples.maxByOrNull { it.totalReward(gamma.toDouble()) } ?: continue
             println(policy.epsilon)
             println(sample.totalReward(gamma.toDouble()))
-            qFunction.train(targetCreator.createTargets(listOf(sample), mdp))
+            qFunction.train(QTargetCreator.createTargets(listOf(sample), mdp))
         }
         return policy
     }
@@ -446,6 +444,16 @@ class EGreedyPolicy<S : Identifiable, A : Identifiable>(var epsilon: Double, val
                 uniform(possibleActions.toList())
             } else {
                 policy.action(state)
+            }
+        }
+    }
+
+    override fun allActions(state: List<S>): List<Distribution<A>> {
+        val dists = policy.allActions(state)
+        return dists.mapIndexed { i, d ->
+            flip(epsilon).chain {
+                if (it) uniform(mdp.possibleActions(state[i]).toList())
+                else d
             }
         }
     }

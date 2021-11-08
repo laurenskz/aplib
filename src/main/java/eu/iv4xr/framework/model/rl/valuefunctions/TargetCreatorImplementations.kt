@@ -3,11 +3,10 @@ package eu.iv4xr.framework.model.rl.valuefunctions
 import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.MDP
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
-import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
 
-class TDTargetCreator<S : Identifiable, A : Identifiable>(val valuefunction: QFunction<S, A>, val gamma: Float) : TargetCreator<S, A> {
+class TDQTargetCreator<S : Identifiable, A : Identifiable>(val valuefunction: QFunction<S, A>, val gamma: Float) : QTargetCreator<S, A> {
 
     override fun createTargets(episodes: List<BurlapAlgorithms.Episode<S, A>>, mdp: MDP<S, A>): List<QTarget<S, A>> {
         val samples = episodes.flatMap { it.steps }
@@ -17,7 +16,7 @@ class TDTargetCreator<S : Identifiable, A : Identifiable>(val valuefunction: QFu
     }
 }
 
-class NStepTDTargetCreator<S : Identifiable, A : Identifiable>(val valuefunction: QFunction<S, A>, val gamma: Float, val n: Int) : TargetCreator<S, A> {
+class NStepTDQTargetCreator<S : Identifiable, A : Identifiable>(val valuefunction: QFunction<S, A>, val gamma: Float, val n: Int) : QTargetCreator<S, A> {
 
     override fun createTargets(episodes: List<BurlapAlgorithms.Episode<S, A>>, mdp: MDP<S, A>): List<QTarget<S, A>> {
         return episodes.flatMap {
@@ -34,3 +33,4 @@ class NStepTDTargetCreator<S : Identifiable, A : Identifiable>(val valuefunction
         }
     }
 }
+

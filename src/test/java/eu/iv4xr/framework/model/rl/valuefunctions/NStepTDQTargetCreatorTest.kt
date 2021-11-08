@@ -56,7 +56,7 @@ private class TestMDP : MDP<TestState, TestAction> {
     }
 }
 
-internal class NStepTDTargetCreatorTest {
+internal class NStepTDQTargetCreatorTest {
     @Test
     fun test() {
         val episodes = listOf(
@@ -71,14 +71,14 @@ internal class NStepTDTargetCreatorTest {
                         )
                 )
         )
-        val targets = NStepTDTargetCreator(TestQFunction(), 0.9f, 2).createTargets(
+        val targets = NStepTDQTargetCreator(TestQFunction(), 0.9f, 2).createTargets(
                 episodes, TestMDP()
         )
         assertEquals(targets[0].target, 0.9f)
         assertEquals(targets[1].target, 4.33f)
         assertEquals(targets[2].target, 1.9f)
         assertEquals(targets[3].target, 1.0f)
-        println(NStepTDTargetCreator(TestQFunction(), 0.9f, Int.MAX_VALUE).createTargets(
+        println(NStepTDQTargetCreator(TestQFunction(), 0.9f, Int.MAX_VALUE).createTargets(
                 episodes, TestMDP()
         ))
     }

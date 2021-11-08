@@ -41,6 +41,7 @@ data class ICMSample<S : Identifiable, A : Identifiable>(val state: S, val actio
 interface ICMModule<S : Identifiable, A : Identifiable> {
     fun intrinsicReward(sars: BurlapAlgorithms.SARS<S, A>): Double
     fun intrinsicReward(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double> = sars.map(::intrinsicReward)
+    fun train(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double>
 //    fun update(icmSample: ICMSample<S, A>)
 //    fun updateAll(samples: List<ICMSample<S, A>>) = samples.forEach(::update)
 }
@@ -97,27 +98,30 @@ class CuriosityDriven<S : Identifiable, A : Identifiable>(
         val policy: ModifiablePolicy<S, A>,
         val valueFunction: TrainableValuefunction<S>,
         val icm: ICMModule<S, A>,
-        val extrinsicWeight: Double,
         val random: Random,
         val gamma: Double,
         val episodes: Int,
         val rewardLogger: CuriosityRewardLogger,
-        val batchSize: Int = 128
+        val batchSize: Int = 128,
+        val eta: Double = 1.0
 ) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
+        val ePolicy = EGreedyPolicy(0.0, mdp, policy)
         repeat(ceil(episodes / batchSize.toDouble()).toInt()) {
             var i = 1.0
             val total = MutableList(batchSize) { 0.0 }
             val totalI = MutableList(batchSize) { 0.0 }
             val totalE = MutableList(batchSize) { 0.0 }
-            println(it)
+
             var states = (0 until batchSize).map { mdp.initialState().sample(random) }
+            println(policy.allActions(states).first().supportWithDensities())
+            println(valueFunction.values(states))
             while (!states.all { mdp.isTerminal(it) }) {
-                val actions = policy.allActions(states).map { it.sample(random) }
+                val actions = ePolicy.allActions(states).map { it.sample(random) }
                 val sars = actions.indices.map { mdp.executeAction(actions[it], states[it], random) }
-                val intrinsicRewards = icm.intrinsicReward(sars)
+                val intrinsicRewards = icm.train(sars)
                 val extrinsicRewards = sars.map { it.r }
-                val totalRewards = intrinsicRewards.indices.map { intrinsicRewards[it] * (1 - extrinsicWeight) + extrinsicRewards[it] * extrinsicWeight }
+                val totalRewards = intrinsicRewards.indices.map { (eta / 2.0) * intrinsicRewards[it] + extrinsicRewards[it] }
                 val statesPrime = sars.map { it.sp }
                 val values = valueFunction.values(statesPrime)
                 val targets = totalRewards.indices.map { totalRewards[it] + gamma * if (mdp.isTerminal(statesPrime[it])) 0f else values[it] }
@@ -125,8 +129,7 @@ class CuriosityDriven<S : Identifiable, A : Identifiable>(
                 valueFunction.train(targets.indices.map {
                     Target(states[it], targets[it].toFloat())
                 })
-                val updates = targets.indices.map { if (mdp.isTerminal(states[it])) 0.0 else i * targets[it] - baseLines[it] }
-
+                val updates = targets.indices.map { if (mdp.isTerminal(states[it])) 0.0 else targets[it] - baseLines[it] }
                 policy.updateAll(updates.indices.map { PolicyGradientTarget(states[it], actions[it], updates[it]) })
                 for (index in total.indices) {
                     total[index] += totalRewards[index] * i
@@ -136,9 +139,9 @@ class CuriosityDriven<S : Identifiable, A : Identifiable>(
                 i *= gamma
                 states = statesPrime
             }
-            rewardLogger.episodeReward(it, total.average().toFloat())
-            rewardLogger.intrinsicEpisodeReward(it, totalI.average().toFloat())
-            rewardLogger.extrinsicEpisodeReward(it, totalE.average().toFloat())
+            rewardLogger.episodeReward(it * batchSize, total.average().toFloat())
+            rewardLogger.intrinsicEpisodeReward(it * batchSize, totalI.average().toFloat())
+            rewardLogger.extrinsicEpisodeReward(it * batchSize, totalE.average().toFloat())
         }
         return policy
     }

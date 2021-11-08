@@ -58,15 +58,27 @@ class ICMModuleImpl<S : Identifiable, A : Identifiable>(
 ) : ICMModule<S, A> {
     val sessioned = Sessioned(model, null)
     override fun intrinsicReward(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double> {
-        val output = sessioned.session.runner()
-                .feed(sessioned.input(ICMHolders.ACTION), actionEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.a }))
-                .feed(sessioned.input(ICMHolders.STATE_PRIME), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.sp }))
-                .feed(sessioned.input(ICMHolders.STATE), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.s }))
+        val output = feedInput(sars)
                 .fetch(sessioned.output(ICMHolders.STATE_LOSS))
-                .addTarget(sessioned.op(ICMHolders.TRAIN_STEP))
                 .run()
                 .first() as TFloat32
         return sars.indices.map { output.getFloat(it.toLong()).toDouble() }
+    }
+
+    override fun train(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double> {
+        val output = feedInput(sars)
+                .addTarget(sessioned.op(ICMHolders.TRAIN_STEP))
+                .fetch(sessioned.output(ICMHolders.STATE_LOSS))
+                .run()
+                .first() as TFloat32
+        return sars.indices.map { output.getFloat(it.toLong()).toDouble() }
+    }
+
+    private fun feedInput(sars: List<BurlapAlgorithms.SARS<S, A>>): Session.Runner {
+        return sessioned.session.runner()
+                .feed(sessioned.input(ICMHolders.ACTION), actionEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.a }))
+                .feed(sessioned.input(ICMHolders.STATE_PRIME), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.sp }))
+                .feed(sessioned.input(ICMHolders.STATE), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.s }))
     }
 
     override fun intrinsicReward(sars: BurlapAlgorithms.SARS<S, A>): Double {
@@ -74,7 +86,7 @@ class ICMModuleImpl<S : Identifiable, A : Identifiable>(
     }
 }
 
-class TFPolicy<State : Identifiable, A : Identifiable>(val factory: FeatureVectorFactory<State>, val mdp: MDP<State, A>, val lr: Float, val tensorboardSteps: Int = 100, val logDir: String? = null, batchSize: Int = 128) : ModifiablePolicy<State, A> {
+class TFPolicy<State : Identifiable, A : Identifiable>(val factory: FeatureVectorFactory<State>, val mdp: MDP<State, A>, val lr: Float, val tensorboardSteps: Int = 100, val logDir: String? = null, val batchSize: Int = 128) : ModifiablePolicy<State, A> {
 
     val actions = mdp.allPossibleActions().toList()
     val indices = actions.mapIndexed { i, a -> a to i }.toMap()
@@ -98,9 +110,7 @@ class TFPolicy<State : Identifiable, A : Identifiable>(val factory: FeatureVecto
                 .feed(sessioned.input(SoftmaxModel.Holders.INPUT_ACTIONS), actions)
                 .addTarget(sessioned.op(SoftmaxModel.Holders.TRAIN_OP))
                 .addTarget(sessioned.incGlobal)
-        if (updateCounter % tensorboardSteps == 0L && sessioned.logDir != null) {
-            runner.addTarget(sessioned.summary)
-        }
+                .addTarget(sessioned.summary)
         updateCounter = (runner.run().first() as TInt64).getLong()
     }
 
@@ -413,6 +423,7 @@ class SoftmaxModel(val inputSize: Long, val finalOutput: Long, val layer: Layer,
         val actions = tf.placeholder(TInt32::class.java, Placeholder.shape(of(UNKNOWN_SIZE)))
         val second = layer.transform(model, input)
         val raw = rawLayer(finalOutput).transform(model, second)
+        model.logs.add(tf.summary.histogramSummary(tf.constant("Logits"), raw))
         model.logs.add(tf.summary.histogramSummary(tf.constant("input"), input))
         val softmaxed = tf.nn.softmax(raw)
         model.logs.add(tf.summary.histogramSummary(tf.constant("Action prob"), softmaxed))

@@ -62,6 +62,8 @@ object BurlapAlgorithms {
         fun totalReward(gamma: Double) = steps.mapIndexed { i, s -> gamma.pow(i) * s.r }.sum()
     }
 
+    fun totalReward(gamma: Double, steps: Sequence<Double>) = steps.mapIndexed { i, s -> gamma.pow(i) * s }.sum()
+
 
     fun <S : BurlapState, A : BurlapAction> lspi(discountFactor: Double, numSamples: Int, maxEpisodeLength: Int, factory: FeatureActionFactory<S, A>, random: Random, numIterations: Int = 30) = BurlapAlg<S, A>(random) {
         val collector = SARSCollector.UniformRandomSARSCollector(domain)
