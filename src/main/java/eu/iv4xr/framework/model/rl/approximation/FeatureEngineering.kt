@@ -4,7 +4,6 @@ import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.spatial.Vec3
 import org.tensorflow.ndarray.FloatNdArray
 import org.tensorflow.types.TFloat32
-import kotlin.math.max
 import kotlin.reflect.KClass
 import kotlin.reflect.safeCast
 
@@ -12,16 +11,24 @@ interface DataBuffer {
     fun set(index: Int, value: Double)
 }
 
-class TensorBuffer(val tensor: TFloat32, val dims: LongArray) : DataBuffer {
+interface NdDataBuffer : DataBuffer {
+    fun set(value: Double, vararg index: Long)
+
     override fun set(index: Int, value: Double) {
-        tensor.setFloat(value.toFloat(), *dims, index.toLong())
+        set(value, index.toLong())
+    }
+}
+
+class TensorBuffer(val tensor: TFloat32, val dims: LongArray) : NdDataBuffer {
+    override fun set(value: Double, vararg index: Long) {
+        tensor.setFloat(value.toFloat(), *(dims + index))
     }
 
 }
 
-class NDArrayBuffer(val buffer: FloatNdArray, val dims: LongArray) : DataBuffer {
-    override fun set(index: Int, value: Double) {
-        buffer.setFloat(value.toFloat(), *dims, index.toLong())
+class NDArrayBuffer(val buffer: FloatNdArray, val dims: LongArray) : NdDataBuffer {
+    override fun set(value: Double, vararg index: Long) {
+        buffer.setFloat(value.toFloat(), *(dims + index))
     }
 }
 
@@ -38,12 +45,14 @@ class DoubleBuffer(val array: DoubleArray) : DataBuffer {
 }
 
 interface FeatureVectorFactory<T> {
-    fun features(t: T): DoubleArray = DoubleArray(count()).also { setFrom(t, DoubleBuffer(it), 0) }
+    fun arrayFeatures(t: T): DoubleArray = DoubleArray(count()).also { setFrom(t, DoubleBuffer(it), 0) }
     fun floatFeatures(t: T): FloatArray = FloatArray(count()).also { setFrom(t, FloatBuffer(it), 0) }
     fun setTensorFeatures(t: T, tensor: TFloat32, index: LongArray) = tensor.also { setFrom(t, TensorBuffer(it, index), 0) }
     fun setNdArrayFeatures(t: T, tensor: FloatNdArray, index: LongArray) = tensor.also { setFrom(t, NDArrayBuffer(it, index), 0) }
     fun setFrom(t: T, result: DataBuffer, start: Int)
+    fun setFrom(t: T, result: NdDataBuffer, start: LongArray) = setFrom(t, result, start.first().toInt())
     fun count(): Int
+    fun shape(): LongArray = longArrayOf(count().toLong())
 }
 
 typealias FeatureActionFactory<S, A> = FeatureVectorFactory<Pair<S, A>>
@@ -61,7 +70,7 @@ class MergedFeatureFactory<T, A>(val first: FeatureVectorFactory<T>, val second:
 
 open class FeatureOwner<T>(val factory: FeatureVectorFactory<T>) : Identifiable
 
-fun <T : FeatureOwner<T>> T.features() = factory.features(this)
+fun <T : FeatureOwner<T>> T.arrayFeatures() = factory.arrayFeatures(this)
 
 class OneHot<T>(val ts: List<T>) : FeatureVectorFactory<T> {
     private val map = ts.mapIndexed { i, t -> t to i }.toMap()
@@ -75,6 +84,36 @@ class OneHot<T>(val ts: List<T>) : FeatureVectorFactory<T> {
         return ts.count()
     }
 }
+
+class ActionRepeatingFactory<S : Identifiable, A : Identifiable>(val factory: FeatureVectorFactory<S>, val actions: List<A>) : FeatureActionFactory<S, A> {
+    val map = actions.mapIndexed { i, t -> t to i }.toMap()
+
+    override fun setFrom(t: Pair<S, A>, result: DataBuffer, start: Int) {
+        val index = map[t.second] ?: error("Unrecognized action")
+        factory.setFrom(t.first, result, index * factory.count())
+    }
+
+    override fun count(): Int {
+        return actions.size * factory.count()
+    }
+
+}
+
+//class GridOneHot<T>(val shape: LongArray, val expand: (T) -> Sequence<LongArray>) : FeatureVectorFactory<T> {
+//    override fun setFrom(t: T, result: DataBuffer, start: Int) {
+//        expand(t).forEach {
+//            result.set()
+//        }
+//    }
+//
+//    override fun count(): Int {
+//        TODO("Not yet implemented")
+//    }
+//
+//    override fun shape(): LongArray {
+//        return shape
+//    }
+//}
 
 open class PrimitiveFeature<T>(val toDouble: (T) -> Double) : FeatureVectorFactory<T> {
 

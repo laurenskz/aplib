@@ -174,7 +174,7 @@ fun <S : BurlapState, A : BurlapAction> MDP<S, A>.actionTypes() = object : Actio
 @Suppress("UNCHECKED_CAST")
 fun <T : BurlapState> FeatureVectorFactory<T>.stateFeatures() = object : DenseStateFeatures {
     override fun features(p0: State?): DoubleArray {
-        return this@stateFeatures.features(p0 as T)
+        return this@stateFeatures.arrayFeatures(p0 as T)
     }
 
     override fun copy(): DenseStateFeatures = this
@@ -182,7 +182,7 @@ fun <T : BurlapState> FeatureVectorFactory<T>.stateFeatures() = object : DenseSt
 
 fun <T : BurlapState, A : BurlapAction> FeatureActionFactory<T, A>.stateActionFeatures() = object : DenseStateActionFeatures {
     override fun features(p0: State?, p1: Action?): DoubleArray {
-        return this@stateActionFeatures.features((p0 as T) to (p1 as A))
+        return this@stateActionFeatures.arrayFeatures((p0 as T) to (p1 as A))
     }
 
     override fun copy(): DenseStateActionFeatures = this

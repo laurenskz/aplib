@@ -4,7 +4,7 @@ import eu.iv4xr.framework.model.distribution.expectedValue
 import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.MDP
 
-interface Valuefunction<S : Identifiable> {
+interface Valuefunction<S> {
     fun value(state: S): Float
     fun values(states: List<S>): List<Float> = states.map { value(it) }
 }
@@ -16,10 +16,10 @@ interface QFunction<S : Identifiable, A : Identifiable> {
     fun qForActions(states: List<Pair<S, List<A>>>): List<List<Pair<A, Float>>> = states.map { qForActions(it.first, it.second) }
 }
 
-data class Target<S : Identifiable>(val state: S, val target: Float)
+data class Target<S>(val state: S, val target: Float)
 data class QTarget<S : Identifiable, A : Identifiable>(val state: S, val action: A, val target: Float)
 
-interface TrainableValuefunction<S : Identifiable> : Valuefunction<S> {
+interface TrainableValuefunction<S> : Valuefunction<S> {
     fun train(target: Target<S>)
     fun train(targets: List<Target<S>>) = targets.forEach { train(it) }
 

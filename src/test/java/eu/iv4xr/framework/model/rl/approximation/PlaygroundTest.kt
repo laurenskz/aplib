@@ -42,7 +42,7 @@ internal class PlaygroundTest {
     @Test
     fun testFeatures() {
         val factory = MergedFeatureFactory(stateWithGoalProgressFactory(PlaygroundState.factory, 1), PlaygroundAction.factory)
-        println(factory.features(StateWithGoalProgress(listOf(false), PlaygroundState(0, 0.9, 0.3, 2)) to PlaygroundAction(2)).toList())
+        println(factory.arrayFeatures(StateWithGoalProgress(listOf(false), PlaygroundState(0, 0.9, 0.3, 2)) to PlaygroundAction(2)).toList())
     }
 
     @Test

@@ -1,6 +1,7 @@
 package eu.iv4xr.framework.model.distribution
 
 import org.rlcommunity.rlglue.codec.taskspec.ranges.DoubleRange
+import kotlin.math.exp
 
 /**
  * Some basic probability distributions
@@ -33,6 +34,15 @@ object Distributions {
      */
     fun <T> discrete(vararg elements: Pair<out T, Double>): Distribution<T> {
         return DiscreteDistribution(mapOf(*elements))
+    }
+
+    /**
+     * Discrete distribution based on softmax of the associated elements
+     */
+    fun <T> softmax(elements: Map<T, Double>): Distribution<T> {
+        val exponentiated = elements.mapValues { exp(it.value) }
+        val sum = exponentiated.values.sum()
+        return discrete(exponentiated.mapValues { it.value / sum })
     }
 
     /**

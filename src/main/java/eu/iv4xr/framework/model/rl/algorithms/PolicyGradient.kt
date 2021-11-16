@@ -1,13 +1,14 @@
 package eu.iv4xr.framework.model.rl.algorithms
 
-import cern.jet.stat.Gamma
-import eu.iv4xr.framework.model.distribution.Distribution
+import eu.iv4xr.framework.model.distribution.expectedValue
 import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.MDP
 import eu.iv4xr.framework.model.rl.Policy
 import eu.iv4xr.framework.model.rl.RLAlgorithm
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
+import eu.iv4xr.framework.model.rl.valuefunctions.QTarget
 import eu.iv4xr.framework.model.rl.valuefunctions.Target
+import eu.iv4xr.framework.model.rl.valuefunctions.TrainableQFunction
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
 import java.io.OutputStream
 import java.io.PrintWriter
@@ -30,7 +31,13 @@ interface CuriosityRewardLogger : RewardLogger {
     fun extrinsicEpisodeReward(episode: Int, reward: Float)
 }
 
-class NoOpRewardLogger : RewardLogger {
+class NoOpRewardLogger : RewardLogger, CuriosityRewardLogger {
+    override fun intrinsicEpisodeReward(episode: Int, reward: Float) {
+    }
+
+    override fun extrinsicEpisodeReward(episode: Int, reward: Float) {
+    }
+
     override fun episodeReward(episode: Int, reward: Float) {
     }
 
@@ -50,6 +57,102 @@ class PrintRewardLogger(val outputStream: OutputStream) : RewardLogger {
     val writer = PrintWriter(outputStream)
     override fun episodeReward(episode: Int, reward: Float) {
         writer.println("Episode $episode, reward:$reward")
+    }
+}
+
+class ICMActorCritic<S : Identifiable, A : Identifiable>(
+        val policy: ModifiablePolicy<S, A>,
+        val valueFunction: TrainableValuefunction<S>,
+        val icm: ICMModule<S, A>,
+        val random: Random,
+        val gamma: Double,
+        val episodes: Int,
+        val eta: Double,
+        val rewardLogger: RewardLogger = NoOpRewardLogger()
+) : RLAlgorithm<S, A> {
+    override fun train(mdp: MDP<S, A>): Policy<S, A> {
+        repeat(episodes) {
+            println("Episode $it")
+            var i = 1.0
+            var state = mdp.initialState().sample(random)
+            while (!mdp.isTerminal(state)) {
+                println()
+                println("State:$state")
+                val base = valueFunction.value(state)
+                println("Value:$base")
+                val action = policy.action(state)
+                println("Action:" + action.supportWithDensities())
+                val sars = mdp.executeAction(action.sample(random), state, random)
+                println("Chose action ${sars.a}")
+//                if (sars.r > 0) error("Reached first time in episode $it")
+                val train = icm.train(listOf(sars))
+                val intrinsicReward = train.first()
+                println("Intrinsic:$intrinsicReward")
+                var sarsI = sars.copy(r = sars.r + (eta / 2.0) * intrinsicReward)
+                val sp = if (mdp.isTerminal(sars.sp)) 0f else valueFunction.value(sars.sp)
+                val target = sarsI.r + gamma * sp
+                println("Value target:$target")
+                valueFunction.train(Target(state, target.toFloat()))
+                val newValue = valueFunction.value(state)
+                println("Result:$newValue")
+                val d = newValue - base
+                println("Policy delta:$d")
+                println()
+
+                policy.update(PolicyGradientTarget(state, sars.a, d.toDouble()))
+                i *= gamma
+                state = sars.sp
+            }
+        }
+        return policy
+    }
+}
+
+class QActorCritic<S : Identifiable, A : Identifiable>(
+        val policy: ModifiablePolicy<S, A>,
+        val valueFunction: TrainableQFunction<S, A>,
+        val icm: ICMModule<S, A>,
+        val random: Random,
+        val gamma: Double,
+        val episodes: Int,
+        val eta: Double,
+        val rewardLogger: RewardLogger = NoOpRewardLogger()
+) : RLAlgorithm<S, A> {
+    override fun train(mdp: MDP<S, A>): Policy<S, A> {
+        repeat(episodes) {
+            println("Episode $it")
+            var i = 1.0
+            var state = mdp.initialState().sample(random)
+            var action = policy.action(state).sample(random)
+            while (!mdp.isTerminal(state)) {
+                val base = valueFunction.qValue(state, action)
+                println("Base:$base")
+                println("Policy:${policy.action(state).supportWithDensities()}")
+                println("State:$state")
+                println("Action:$action")
+                val sars = mdp.executeAction(action, state, random)
+                val train = icm.train(listOf(sars))
+                val intrinsicReward = train.first()
+                println("Intrinsic:$intrinsicReward")
+                var sarsI = sars.copy(r = sars.r + (eta / 2.0) * intrinsicReward)
+                val sp = if (mdp.isTerminal(sars.sp)) 0f else policy.action(sars.sp).expectedValue { valueFunction.qValue(sars.sp, it).toDouble() }.toFloat()
+                val target = sarsI.r + gamma * sp
+                valueFunction.train(QTarget(state, action, target.toFloat()))
+                val newValue = valueFunction.qValue(state, action)
+                println("Result:$newValue")
+                val d = newValue - base
+                println("Policy delta:$d")
+
+                policy.update(PolicyGradientTarget(state, sars.a, d.toDouble()))
+                println("Result:" + policy.action(state).supportWithDensities())
+                println()
+
+                i *= gamma
+                state = sars.sp
+                action = policy.action(state).sample(random)
+            }
+        }
+        return policy
     }
 }
 

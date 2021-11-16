@@ -10,8 +10,6 @@ import kotlin.random.Random
 class DiscreteDistribution<T>(val values: Map<T, Double>, private val tolerance: Double = 0.0001) : Distribution<T> {
 
     init {
-        if(values.any{ it.value.isNaN()})
-            println("Nope!")
         assert((values.values.sum() - 1) < tolerance)
     }
 

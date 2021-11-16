@@ -1,5 +1,6 @@
 package eu.iv4xr.framework.model.rl.policies
 
+import burlap.statehashing.HashableState
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions.discrete
 import eu.iv4xr.framework.model.rl.Identifiable
@@ -7,6 +8,11 @@ import eu.iv4xr.framework.model.rl.MDP
 import eu.iv4xr.framework.model.rl.algorithms.*
 import eu.iv4xr.framework.model.rl.approximation.FeatureVectorFactory
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
+import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassAction
+import eu.iv4xr.framework.model.rl.valuefunctions.QTarget
+import eu.iv4xr.framework.model.rl.valuefunctions.Target
+import eu.iv4xr.framework.model.rl.valuefunctions.TrainableQFunction
+import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
 import org.tensorflow.*
 import org.tensorflow.ndarray.FloatNdArray
 import org.tensorflow.ndarray.NdArrays
@@ -14,7 +20,6 @@ import org.tensorflow.ndarray.Shape.*
 import org.tensorflow.op.Op
 import org.tensorflow.op.Ops
 import org.tensorflow.op.core.*
-import org.tensorflow.op.math.Mean
 import org.tensorflow.op.summary.*
 import org.tensorflow.types.TFloat32
 import org.tensorflow.types.TInt32
@@ -36,13 +41,12 @@ fun FloatNdArray.print() {
 
 fun TFloat32.print() {
     repeat(shape().asArray()[0].toInt()) {
-        println(it)
         this[it.toLong()].print()
         println()
     }
 }
 
-private fun <S : Identifiable> FeatureVectorFactory<S>.createInputs(count: Long, sequence: Sequence<S>): Tensor {
+fun <S : Identifiable> FeatureVectorFactory<S>.createInputs(count: Long, sequence: Sequence<S>): Tensor {
     val of = of(count, count().toLong())
     val ndArray = NdArrays.ofFloats(of)
     sequence.forEachIndexed { i, t ->
@@ -51,12 +55,35 @@ private fun <S : Identifiable> FeatureVectorFactory<S>.createInputs(count: Long,
     return TFloat32.tensorOf(ndArray)
 }
 
+class CountBasedICMModule<S : Identifiable, A : Identifiable>(
+        val valueFunction: TrainableValuefunction<S>,
+        val countFunction: (Double) -> Double
+) : ICMModule<S, A> {
+    val counts = mutableMapOf<Pair<S, A>, Int>()
+
+    override fun intrinsicReward(sars: BurlapAlgorithms.SARS<S, A>): Double {
+        return valueFunction.value(sars.sp).let { countFunction(it.toDouble()) }
+    }
+
+    private fun trainSample(sample: BurlapAlgorithms.SARS<S, A>): Double {
+        val current = valueFunction.value(sample.sp)
+        valueFunction.train(Target(sample.sp, current + 1))
+        return countFunction(current.toDouble())
+    }
+
+    override fun train(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double> {
+        return sars.map { trainSample(it) }
+    }
+
+}
+
 class ICMModuleImpl<S : Identifiable, A : Identifiable>(
         val model: ICMModel,
         val stateEncoder: FeatureVectorFactory<S>,
         val actionEncoder: FeatureVectorFactory<A>,
+        val logDir: String? = null
 ) : ICMModule<S, A> {
-    val sessioned = Sessioned(model, null)
+    val sessioned = Sessioned(model, logDir)
     override fun intrinsicReward(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double> {
         val output = feedInput(sars)
                 .fetch(sessioned.output(ICMHolders.STATE_LOSS))
@@ -69,6 +96,8 @@ class ICMModuleImpl<S : Identifiable, A : Identifiable>(
         val output = feedInput(sars)
                 .addTarget(sessioned.op(ICMHolders.TRAIN_STEP))
                 .fetch(sessioned.output(ICMHolders.STATE_LOSS))
+                .addTarget(sessioned.summary)
+                .addTarget(sessioned.incGlobal)
                 .run()
                 .first() as TFloat32
         return sars.indices.map { output.getFloat(it.toLong()).toDouble() }
@@ -163,7 +192,7 @@ fun graph(func: Model.(Operand<TFloat32>) -> Operand<TFloat32>): Layer = object 
 
 fun dense(outSize: Long) = graph {
     val raw = rawLayer(outSize).transform(this, it)
-    tf.nn.relu(raw)
+    tf.math.sigmoid(raw)
 }
 
 fun dense(outSize: Long, name: String) = graph {
@@ -193,9 +222,8 @@ fun rawLayer(outSize: Long, name: String) = graph {
 }
 
 fun meanSquaredError(x: Operand<TFloat32>) = graph {
-    val diff = tf.math.squaredDifference(x, it)
-    val sum = tf.reduceSum(diff, tf.constant(-1), ReduceSum.keepDims(false))
-    tf.math.div(sum, tf.constant(x.shape().size(-1).toFloat()))
+    val squaredDiff = tf.math.square(tf.math.sub(x, it))
+    tf.math.mean(squaredDiff, tf.constant(1))
 }
 
 
@@ -216,10 +244,9 @@ fun optimize(model: Model, loss: Operand<TFloat32>, lr: Operand<TFloat32>, add: 
     return tf.merge(trainSteps.toMutableList())
 }
 
-fun logGradientStep(model: Model, actionCount: Int, y: Operand<TFloat32>, lr: Operand<TFloat32>, actions: Operand<TInt32>, batchSize: Int): Merge<TFloat32> {
+fun logGradientStep(model: Model, actionCount: Int, logits: Operand<TFloat32>, lr: Operand<TFloat32>, actions: Operand<TInt32>, batchSize: Int): Merge<TFloat32> {
     val tf = model.tf
-    val logSoftmax = tf.nn.logSoftmax(y)
-    model.logs.add(tf.summary.histogramSummary(tf.constant("log"), logSoftmax))
+    val logSoftmax = tf.nn.logSoftmax(logits)
     val mask = tf.oneHot(actions, tf.constant(actionCount), tf.constant(1.0f), tf.constant(0.0f))
     val toGrad = tf.math.mul(mask, logSoftmax)
     val variables = model.variables.values.toList()
@@ -313,17 +340,16 @@ class Sessioned(builder: ModelDefBuilder, val logDir: String?) {
     init {
         session = Session(graph)
         writer = SummaryWriter.create(tf.scope())
-        val create = CreateSummaryFileWriter.create(
-                tf.scope(),
-                writer,
-                tf.constant(logDir ?: ""),
-                tf.constant(0),
-                tf.constant(0),
-                tf.constant(".out")
-        )
-        graph.initializers()
-        graph.registerInitOp(create.op())
-        if (model.logs.isNotEmpty()) {
+        if (model.logs.isNotEmpty() && logDir != null) {
+            val create = CreateSummaryFileWriter.create(
+                    tf.scope(),
+                    writer,
+                    tf.constant(logDir ?: ""),
+                    tf.constant(0),
+                    tf.constant(0),
+                    tf.constant(".out")
+            )
+            graph.registerInitOp(create.op())
             val merged = tf.summary.mergeSummary(model.logs)
             val writeSummary = WriteRawProtoSummary.create(tf.scope(),
                     writer,
@@ -386,14 +412,20 @@ class ICMModel(val beta: Double,
         val forwardInput = tf.concat(listOf(stateFeatures, action), tf.constant(-1))
         val statePrimePrediction = statePrimeNetwork.transform(model.withScope("predictStatePrime"), forwardInput)
         val actionPredictionInput = tf.concat(listOf(stateFeatures, statePrimeFeatures), tf.constant(-1))
-        val stateLoss = meanSquaredError(statePrimeFeatures).transform(model.withScope("stateLoss"), statePrimePrediction)
+        model.logs.add(tf.summary.histogramSummary(tf.constant("Action input"), actionPredictionInput))
+        val batchStateLoss = meanSquaredError(statePrimeFeatures).transform(model.withScope("stateLoss"), statePrimePrediction)
+        val stateLoss = tf.math.mean(batchStateLoss, tf.constant(0))
         val predictedAction = predictActionNetwork.transform(model.withScope("predictAction"), actionPredictionInput)
-        val actionLoss = tf.withSubScope("actionLoss").nn.softmaxCrossEntropyWithLogits(predictedAction, action).loss()
+        model.logs.add(tf.summary.histogramSummary(tf.constant("Action logits"), predictedAction))
+        val batchedActionLoss = tf.withSubScope("actionLoss").nn.softmaxCrossEntropyWithLogits(predictedAction, action).loss()
+        val actionLoss = tf.math.mean(batchedActionLoss, tf.constant(0))
+        model.logs.add(tf.summary.scalarSummary(tf.constant("Action loss"), actionLoss))
+        model.logs.add(tf.summary.scalarSummary(tf.constant("State loss"), stateLoss))
         val totalLoss = createLoss(model.tf.withSubScope("totalLoss"), actionLoss, stateLoss)
         val trainStep = optimize(model.withScope("Optimize"), totalLoss, tf.constant(lr.toFloat()), add = false)
         return ModelOperations(mapOf(
                 ICMHolders.STATE to state, ICMHolders.STATE_PRIME to statePrime, ICMHolders.ACTION to action),
-                mapOf(ICMHolders.STATE_LOSS to stateLoss),
+                mapOf(ICMHolders.STATE_LOSS to batchStateLoss),
                 mapOf(ICMHolders.TRAIN_STEP to trainStep))
     }
 

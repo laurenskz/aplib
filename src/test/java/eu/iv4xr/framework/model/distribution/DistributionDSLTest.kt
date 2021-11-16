@@ -17,6 +17,15 @@ internal class DistributionDSLTest {
     }
 
     @Test
+    fun softmax() {
+        val bab = Distributions.softmax(mapOf(
+                "Sun" to 1.0,
+                "Rain" to 2.0,
+        ))
+        println(bab.supportWithDensities())
+    }
+
+    @Test
     fun ifd() {
         val rain = Distributions.bernoulli(0.3)
         val temperature = ifd(rain, Distributions.deterministic(7), Distributions.deterministic(9))

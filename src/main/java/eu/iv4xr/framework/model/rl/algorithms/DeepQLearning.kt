@@ -18,7 +18,7 @@ import kotlin.math.abs
 import kotlin.random.Random
 
 
-fun <E> List<E>.takeRandom(n: Int, random: Random): List<E> {
+fun <E> Collection<E>.takeRandom(n: Int, random: Random): List<E> {
     return List(n) { this.random(random) }
 }
 
