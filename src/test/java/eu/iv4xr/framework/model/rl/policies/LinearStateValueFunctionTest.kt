@@ -76,10 +76,10 @@ internal class LinearStateValueFunctionTest {
                 ActionTest(1.0),
                 ActionTest(2.0),
                 ActionTest(3.0),
-        )), 0.1)
+        )), 0.1,10.0)
         val state = StateTest(1.0, 1.0, 1.0)
         println(policy.action(state).supportWithDensities())
-        policy.update(PolicyGradientTarget(state, ActionTest(0.0), 1000.0))
+        policy.update(PolicyGradientTarget(state, ActionTest(0.0), 10.0))
         println(policy.action(state).supportWithDensities())
     }
 

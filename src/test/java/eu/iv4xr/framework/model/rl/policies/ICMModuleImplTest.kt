@@ -1,10 +1,7 @@
 package eu.iv4xr.framework.model.rl.policies
 
 import eu.iv4xr.framework.model.distribution.flip
-import eu.iv4xr.framework.model.rl.algorithms.Grid
-import eu.iv4xr.framework.model.rl.algorithms.GridWorldAction
-import eu.iv4xr.framework.model.rl.algorithms.GridWorldState
-import eu.iv4xr.framework.model.rl.algorithms.Square
+import eu.iv4xr.framework.model.rl.algorithms.*
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
 import org.junit.Test
 import org.junit.jupiter.api.Assertions.*
@@ -32,19 +29,19 @@ internal class ICMModuleImplTest {
             println(it)
             println(icm.train(
                     listOf(
-                            BurlapAlgorithms.SARS(GridWorldState(Square(0, 0), 0), GridWorldAction.DOWN, GridWorldState(Square(0, 0), 1), 0.0, 1.0),
-                            BurlapAlgorithms.SARS(GridWorldState(Square(1, 1), 0), GridWorldAction.RIGHT, GridWorldState(Square(2, 1), 1), 0.0, 1.0)
+                            ICMSample(GridWorldState(Square(0, 0), 0), GridWorldAction.DOWN, GridWorldState(Square(0, 0), 1)),
+                            ICMSample(GridWorldState(Square(1, 1), 0), GridWorldAction.RIGHT, GridWorldState(Square(2, 1), 1))
 
                     )
             ))
             println(icm.train(
                     listOf(
-                            BurlapAlgorithms.SARS(GridWorldState(Square(0, 0), 0), GridWorldAction.RIGHT, GridWorldState(Square(1, 0), 1), 0.0, 1.0)
+                            ICMSample(GridWorldState(Square(0, 0), 0), GridWorldAction.RIGHT, GridWorldState(Square(1, 0), 1))
                     )
             ))
             println(icm.train(
                     listOf(
-                            BurlapAlgorithms.SARS(GridWorldState(Square(1, 1), 0), GridWorldAction.RIGHT, GridWorldState(Square(2, 1), 1), 0.0, 1.0)
+                            ICMSample(GridWorldState(Square(1, 1), 0), GridWorldAction.RIGHT, GridWorldState(Square(2, 1), 1))
                     )
             ))
         }

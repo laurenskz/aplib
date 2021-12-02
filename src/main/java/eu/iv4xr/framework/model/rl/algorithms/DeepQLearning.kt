@@ -189,7 +189,7 @@ class DeepQLearning<S : Identifiable, A : Identifiable>(val qFunction: Trainable
     override fun train(mdp: MDP<S, A>): GreedyPolicy<S, A> {
         val memory = mutableListOf<BurlapAlgorithms.Episode<S, A>>()
         val greedy = GreedyPolicy(qFunction, mdp)
-        val policy = EGreedyPolicy(0.2, mdp, greedy)
+        val policy = EGreedyPolicy(epsilon, mdp, greedy)
 
         for (i in (0 until trainIterations)) {
             val sars = mdp.sampleEpisode(policy, random)
@@ -208,14 +208,13 @@ class DeepQLearning<S : Identifiable, A : Identifiable>(val qFunction: Trainable
     }
 }
 
-class DeepSARSA<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunction<S, A>, val random: Random, val gamma: Float, val episodes: Int, val n: Int, val QTargetCreator: QTargetCreator<S, A> = NStepTDQTargetCreator(qFunction, gamma, n)) : RLAlgorithm<S, A> {
+class DeepSARSA<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunction<S, A>, val epsilon: Double, val random: Random, val gamma: Float, val episodes: Int, val n: Int, val QTargetCreator: QTargetCreator<S, A> = NStepTDQTargetCreator(qFunction, gamma, n)) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
         val greedy = GreedyPolicy(qFunction, mdp)
-        val policy = EGreedyPolicy(1.0, mdp, greedy)
+        val policy = EGreedyPolicy(epsilon, mdp, greedy)
         (0..episodes).forEach {
-            println(it)
             qFunction.train(QTargetCreator.createTargets(listOf(mdp.sampleEpisode(policy, random)), mdp))
-            policy.epsilon = 1.0 - (it / episodes.toDouble())
+//            policy.epsilon = 1.0 - (it / episodes.toDouble())
         }
         return greedy
     }

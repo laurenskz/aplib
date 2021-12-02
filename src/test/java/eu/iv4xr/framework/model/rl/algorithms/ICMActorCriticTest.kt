@@ -1,26 +1,20 @@
 package eu.iv4xr.framework.model.rl.algorithms
 
-import eu.iv4xr.framework.model.distribution.*
-import eu.iv4xr.framework.model.rl.Identifiable
+import eu.iv4xr.framework.model.distribution.Distribution
+import eu.iv4xr.framework.model.distribution.always
+import eu.iv4xr.framework.model.distribution.flip
 import eu.iv4xr.framework.model.rl.MDP
-import eu.iv4xr.framework.model.rl.Policy
 import eu.iv4xr.framework.model.rl.algorithms.GridWorldAction.*
 import eu.iv4xr.framework.model.rl.approximation.*
-import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
+import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassAction
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
 import eu.iv4xr.framework.model.rl.policies.*
-import eu.iv4xr.framework.model.rl.valuefunctions.QTarget
-import eu.iv4xr.framework.model.rl.valuefunctions.Target
-import eu.iv4xr.framework.model.rl.valuefunctions.TrainableQFunction
-import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
 import org.junit.Test
-import java.util.*
-import kotlin.math.max
 import kotlin.random.Random
 import kotlin.system.exitProcess
 
 
-enum class GridWorldAction : Identifiable {
+enum class GridWorldAction : DataClassAction {
     UP, DOWN, LEFT, RIGHT;
 
     companion object {
@@ -82,152 +76,6 @@ class GridWorld(val grid: Grid, val goal: Square, val maxSteps: Int) : MDP<GridW
 }
 
 
-class ExplorationPolicy<S : Identifiable, A : Identifiable>(val mdp: MDP<S, A>, val valueFunction: TrainableValuefunction<S>, val icmModule: ICMModule<S, A>, val gamma: Float) : Policy<S, A> {
-    override fun action(state: S): Distribution<A> {
-        println(state)
-//        we would like to explore from the most promising state, this is the state from which we don't know what will happen
-        val intrinsicRewards = mdp.possibleActions(state).map { a ->
-            val transition = mdp.transition(state, a)
-            a to transition.expectedValue { sp ->
-                val reward = mdp.reward(state, a, sp).expectedValue()
-                icmModule.train(listOf(BurlapAlgorithms.SARS(state, a, sp, reward, transition.score(sp)))).first()
-            }
-        }
-        return always(intrinsicRewards.maxByOrNull { it.second }!!.first)
-//        return Distributions.softmax(intrinsicRewards.toMap())
-    }
-}
-
-class QLearning<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFunction<S, A>, val gamma: Float, val mdp: MDP<S, A>, val random: Random) {
-
-    fun train(episode: BurlapAlgorithms.Episode<S, A>) {
-        episode.steps.reversed().forEach {
-            train(it)
-        }
-    }
-
-    private fun train(it: BurlapAlgorithms.SARS<S, A>) {
-        train(setOf(it), 1, 1)
-    }
-
-    fun trainEPolicy(episodes: Int) {
-        val epolicy = EGreedyPolicy(0.03, mdp, GreedyPolicy(qFunction, mdp))
-
-        repeat(episodes) {
-            println(it)
-            var state = mdp.initialState().sample(random)
-            while (!mdp.isTerminal(state)) {
-                val sars = mdp.sampleSARS(epolicy, state, random)
-                train(sars)
-                state = sars.sp
-
-            }
-        }
-    }
-
-    fun train(experience: Set<BurlapAlgorithms.SARS<S, A>>, batchSize: Int, batches: Int) {
-        repeat(batches) {
-            val batch = experience.takeRandom(batchSize, random)
-            val nextStates = batch.map { if (mdp.isTerminal(it.sp)) 0f else mdp.possibleActions(it.sp).maxOf { a -> qFunction.qValue(it.sp, a) } }
-            val targets = batch.mapIndexed { i, t -> QTarget(t.s, t.a, (t.r + gamma * nextStates[i]).toFloat()) }
-            qFunction.train(targets)
-        }
-    }
-}
-
-data class RunningAverage(var sum: Double, var count: Int) {
-    val avg
-        get() = sum / max(count.toDouble(), 0.001)
-
-    fun add(delta: Double) {
-        sum += delta
-        count++
-    }
-
-    override fun toString(): String {
-        return "RunningAverage(avg=$avg)"
-    }
-
-}
-
-class ExplorationNode<S : Identifiable, A : Identifiable>(val state: S) : Comparable<ExplorationNode<S, A>> {
-    var predecessor: ExplorationNode<S, A>? = null
-    var sars: BurlapAlgorithms.SARS<S, A>? = null
-    var sOut = 2.0
-    val comparator = compareBy<ExplorationNode<S, A>> { it.priority }.reversed()
-
-    val priority: Double
-        get() = sOut
-
-    override fun compareTo(other: ExplorationNode<S, A>): Int {
-        return comparator.compare(this, other)
-    }
-
-    override fun toString(): String {
-        return "ExplorationNode(state=$state, priority=$priority)"
-    }
-
-
-}
-
-class ExplorationWithQueue<S : Identifiable, A : Identifiable>(
-        val mdp: MDP<S, A>,
-        val estimateUnfamiliarity: TrainableValuefunction<S>,
-        val icmModule: ICMModule<S, A>,
-        val random: Random) {
-    val queue = PriorityQueue<ExplorationNode<S, A>>()
-    val steps = mutableSetOf<BurlapAlgorithms.SARS<S, A>>()
-    val ePolicy = RandomPolicy(mdp)
-    var goalEpisode: BurlapAlgorithms.Episode<S, A>? = null
-
-    init {
-
-        mdp.initialState().support().forEach {
-            queue.add(ExplorationNode(it))
-        }
-    }
-
-    fun explore(): BurlapAlgorithms.Episode<S, A> {
-        var i = 0
-        while (!queue.isEmpty()) {
-//            println(queue)
-            val node = queue.remove()
-            val state = node.state
-            if (mdp.isTerminal(state)) continue
-            val sars = mdp.sampleSARS(ePolicy, state, random)
-            val new = ExplorationNode<S, A>(sars.sp)
-            new.sars = sars
-            val intrinsic = icmModule.train(listOf(sars, mdp.sampleSARS(ePolicy, sars.sp, random)))
-            estimateUnfamiliarity.train(listOf(
-                    Target(state, intrinsic.first().toFloat()),
-                    Target(sars.sp, intrinsic.last().toFloat()))
-            )
-            val values = estimateUnfamiliarity.values(listOf(state, sars.sp))
-            node.sOut = values.first().toDouble()
-            new.sOut = values.last().toDouble()
-            new.predecessor = node
-            queue.add(new)
-            queue.add(node)
-            this.steps.add(sars)
-            if (sars.r > 0) {
-                return createEpisode(new)
-            }
-        }
-        error("No goal found :(")
-//        println("Succes!,${steps.size}")
-    }
-
-    fun createEpisode(node: ExplorationNode<S, A>): BurlapAlgorithms.Episode<S, A> {
-        val steps = mutableListOf<BurlapAlgorithms.SARS<S, A>>()
-        var current: ExplorationNode<S, A>? = node
-        while (current != null) {
-            current.sars?.also { steps.add(0, it) }
-            current = current.predecessor
-        }
-        return BurlapAlgorithms.Episode(steps)
-    }
-}
-
 internal class ICMActorCriticTest {
 
 
@@ -236,12 +84,12 @@ internal class ICMActorCriticTest {
 
         val size = 100
         val goal = Square(80, 80)
-        val grid = (0..size).flatMap { x -> (0..size).map { y -> Square(x, y) } }.let { Grid(it) }
+        val grid = (0..size).flatMap { x -> (0..size).filter { flip(0.8).sample(Random) }.map { y -> Square(x, y) } }.let { Grid(it) }
         val factory = GridWorldState.factoryForGrid(grid)
         val mdp = GridWorld(grid, goal, 100000)
         val actionRepeatingFactory = ActionRepeatingFactory(factory, mdp.allPossibleActions().toList())
         val icm = CountBasedICMModule<GridWorldState, GridWorldAction>(LinearStateValueFunction(factory, 1.0)) { 1.0 / (it + 1) }
-        val exploration = ExplorationPolicy(mdp, LinearStateValueFunction(factory, 1.0), icm, 0.99f)
+        val exploration = ExplorationPolicy(mdp, icm)
 
         val episode = mdp.sampleEpisode(exploration, Random)
         episode.steps.forEach {
@@ -280,16 +128,11 @@ internal class ICMActorCriticTest {
         val mdp = GridWorld(grid, goal, 100000)
         val actionRepeatingFactory = ActionRepeatingFactory(factory, mdp.allPossibleActions().toList())
         val icm = CountBasedICMModule<GridWorldState, GridWorldAction>(LinearStateValueFunction(factory, 1.0)) { 1.0 / (it + 1) }
-        val lr = 1.0
-        val explorer = ExplorationWithQueue(mdp, LinearStateValueFunction(factory, 1.0), icm, Random)
-        val episode = explorer.explore()
-        println(episode.steps.size)
         val qFunction = QFromMerged(actionRepeatingFactory, 1.0)
-        val learning = QLearning(qFunction, 0.99f, mdp, Random)
-        repeat(10) { learning.train(episode) }
-        println(mdp.sampleEpisode(GreedyPolicy(qFunction, mdp), Random).steps.size)
-        learning.trainEPolicy(100)
-        println(mdp.sampleEpisode(GreedyPolicy(qFunction, mdp), Random).steps.size)
+        val exploreFun = QFromMerged(actionRepeatingFactory, 1.0)
+        val alg = ExploreAndConnect(icm, Random, qFunction, exploreFun, 0.999f, 0.999f, 3, 100, MCSampleGreedyPolicy(qFunction, mdp, 50, 0.99f, 10, Random))
+        val policy = alg.train(mdp)
+        println(mdp.sampleEpisode(policy, Random).steps.size)
 
     }
 }

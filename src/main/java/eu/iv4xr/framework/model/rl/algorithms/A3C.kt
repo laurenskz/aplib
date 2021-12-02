@@ -66,11 +66,11 @@ class A3C<S : Identifiable, A : Identifiable>(
                 val allActions = ePolicy.allActions(states)
                 val actions = allActions.map { it.sample(random) }
                 val sars = actions.indices.map { mdp.executeAction(actions[it], states[it], random) }
-                icm.train(sars)
+                icm.train(sars.map { it.toICM() })
                 episodes.indices.forEach { episodes[it].add(sars[it]) }
                 states = sars.map { it.sp }
             }
-            val intrinsicRewards = episodes.map { icm.intrinsicReward(it) }
+            val intrinsicRewards = episodes.map { icm.intrinsicReward(it.map { it.toICM() }) }
             val extrinsicRewards = episodes.map { it.map { it.r } }
             val totalRewards = intrinsicRewards.zip(extrinsicRewards).map { (l, r) -> l.zip(r).map { (x, y) -> x + y } }
             val results = episodes.zip(intrinsicRewards).map { (episode, intrinsic) ->

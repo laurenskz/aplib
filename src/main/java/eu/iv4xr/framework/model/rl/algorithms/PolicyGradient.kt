@@ -45,10 +45,12 @@ class NoOpRewardLogger : RewardLogger, CuriosityRewardLogger {
 
 data class ICMSample<S : Identifiable, A : Identifiable>(val state: S, val action: A, val statePrime: S)
 
+fun <S : Identifiable, A : Identifiable> BurlapAlgorithms.SARS<S, A>.toICM() = ICMSample(s, a, sp)
+
 interface ICMModule<S : Identifiable, A : Identifiable> {
-    fun intrinsicReward(sars: BurlapAlgorithms.SARS<S, A>): Double
-    fun intrinsicReward(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double> = sars.map(::intrinsicReward)
-    fun train(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double>
+    fun intrinsicReward(sars: ICMSample<S, A>): Double
+    fun intrinsicReward(sars: List<ICMSample<S, A>>): List<Double> = sars.map(::intrinsicReward)
+    fun train(sars: List<ICMSample<S, A>>): List<Double>
 //    fun update(icmSample: ICMSample<S, A>)
 //    fun updateAll(samples: List<ICMSample<S, A>>) = samples.forEach(::update)
 }
@@ -85,7 +87,7 @@ class ICMActorCritic<S : Identifiable, A : Identifiable>(
                 val sars = mdp.executeAction(action.sample(random), state, random)
                 println("Chose action ${sars.a}")
 //                if (sars.r > 0) error("Reached first time in episode $it")
-                val train = icm.train(listOf(sars))
+                val train = icm.train(listOf(sars.toICM()))
                 val intrinsicReward = train.first()
                 println("Intrinsic:$intrinsicReward")
                 var sarsI = sars.copy(r = sars.r + (eta / 2.0) * intrinsicReward)
@@ -120,32 +122,32 @@ class QActorCritic<S : Identifiable, A : Identifiable>(
 ) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
         repeat(episodes) {
-            println("Episode $it")
+//            println("Episode $it")
             var i = 1.0
             var state = mdp.initialState().sample(random)
             var action = policy.action(state).sample(random)
             while (!mdp.isTerminal(state)) {
                 val base = valueFunction.qValue(state, action)
-                println("Base:$base")
-                println("Policy:${policy.action(state).supportWithDensities()}")
-                println("State:$state")
-                println("Action:$action")
+//                println("Base:$base")
+//                println("Policy:${policy.action(state).supportWithDensities()}")
+//                println("State:$state")
+//                println("Action:$action")
                 val sars = mdp.executeAction(action, state, random)
-                val train = icm.train(listOf(sars))
+                val train = icm.train(listOf(sars.toICM()))
                 val intrinsicReward = train.first()
-                println("Intrinsic:$intrinsicReward")
+//                println("Intrinsic:$intrinsicReward")
                 var sarsI = sars.copy(r = sars.r + (eta / 2.0) * intrinsicReward)
                 val sp = if (mdp.isTerminal(sars.sp)) 0f else policy.action(sars.sp).expectedValue { valueFunction.qValue(sars.sp, it).toDouble() }.toFloat()
                 val target = sarsI.r + gamma * sp
                 valueFunction.train(QTarget(state, action, target.toFloat()))
                 val newValue = valueFunction.qValue(state, action)
-                println("Result:$newValue")
+//                println("Result:$newValue")
                 val d = newValue - base
-                println("Policy delta:$d")
+//                println("Policy delta:$d")
 
                 policy.update(PolicyGradientTarget(state, sars.a, d.toDouble()))
-                println("Result:" + policy.action(state).supportWithDensities())
-                println()
+//                println("Result:" + policy.action(state).supportWithDensities())
+//                println()
 
                 i *= gamma
                 state = sars.sp
@@ -222,7 +224,7 @@ class CuriosityDriven<S : Identifiable, A : Identifiable>(
             while (!states.all { mdp.isTerminal(it) }) {
                 val actions = ePolicy.allActions(states).map { it.sample(random) }
                 val sars = actions.indices.map { mdp.executeAction(actions[it], states[it], random) }
-                val intrinsicRewards = icm.train(sars)
+                val intrinsicRewards = icm.train(sars.map { it.toICM() })
                 val extrinsicRewards = sars.map { it.r }
                 val totalRewards = intrinsicRewards.indices.map { (eta / 2.0) * intrinsicRewards[it] + extrinsicRewards[it] }
                 val statesPrime = sars.map { it.sp }

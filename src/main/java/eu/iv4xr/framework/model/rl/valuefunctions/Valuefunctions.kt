@@ -14,6 +14,11 @@ interface QFunction<S : Identifiable, A : Identifiable> {
     fun qForActions(state: S, possibilities: List<A>): List<Pair<A, Float>> = possibilities.map { it to qValue(state, it) }
     fun qValues(states: List<Pair<S, A>>): List<Float> = states.map { qValue(it.first, it.second) }
     fun qForActions(states: List<Pair<S, List<A>>>): List<List<Pair<A, Float>>> = states.map { qForActions(it.first, it.second) }
+
+    fun stateValue(state: S, mdp: MDP<S, A>): Float {
+        val maxOf = qValues(mdp.possibleActions(state).map { state to it }.toList()).maxOf { it }
+        return maxOf
+    }
 }
 
 data class Target<S>(val state: S, val target: Float)
@@ -28,6 +33,14 @@ interface TrainableValuefunction<S> : Valuefunction<S> {
 interface TrainableQFunction<S : Identifiable, A : Identifiable> : QFunction<S, A> {
     fun train(target: QTarget<S, A>)
     fun train(targets: List<QTarget<S, A>>) = targets.forEach { train(it) }
+}
+
+class ValueFromQ<S : Identifiable, A : Identifiable>(val value: QFunction<S, A>, val mdp: MDP<S, A>) : Valuefunction<S> {
+    override fun value(state: S): Float {
+        return mdp.possibleActions(state).maxOf {
+            value.qValue(state, it)
+        }
+    }
 }
 
 class QFromValue<S : Identifiable, A : Identifiable>(val value: TrainableValuefunction<S>, val mdp: MDP<S, A>, val gamma: Float) : QFunction<S, A>, TrainableValuefunction<S> by value {

@@ -61,17 +61,39 @@ class CountBasedICMModule<S : Identifiable, A : Identifiable>(
 ) : ICMModule<S, A> {
     val counts = mutableMapOf<Pair<S, A>, Int>()
 
-    override fun intrinsicReward(sars: BurlapAlgorithms.SARS<S, A>): Double {
-        return valueFunction.value(sars.sp).let { countFunction(it.toDouble()) }
+    override fun intrinsicReward(sars: ICMSample<S, A>): Double {
+        return valueFunction.value(sars.statePrime).let { countFunction(it.toDouble()) }
     }
 
-    private fun trainSample(sample: BurlapAlgorithms.SARS<S, A>): Double {
-        val current = valueFunction.value(sample.sp)
-        valueFunction.train(Target(sample.sp, current + 1))
+    private fun trainSample(sample: ICMSample<S, A>): Double {
+        val current = valueFunction.value(sample.statePrime)
+        valueFunction.train(Target(sample.statePrime, current + 1))
         return countFunction(current.toDouble())
     }
 
-    override fun train(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double> {
+    override fun train(sars: List<ICMSample<S, A>>): List<Double> {
+        return sars.map { trainSample(it) }
+    }
+
+}
+
+class QCountBasedICMModule<S : Identifiable, A : Identifiable>(
+        val valueFunction: TrainableQFunction<S, A>,
+        val countFunction: (Double) -> Double
+) : ICMModule<S, A> {
+    val counts = mutableMapOf<Pair<S, A>, Int>()
+
+    override fun intrinsicReward(sars: ICMSample<S, A>): Double {
+        return valueFunction.qValue(sars.state, sars.action).let { countFunction(it.toDouble()) }
+    }
+
+    private fun trainSample(sample: ICMSample<S, A>): Double {
+        val current = valueFunction.qValue(sample.state, sample.action)
+        valueFunction.train(QTarget(sample.state, sample.action, current + 1))
+        return countFunction(current.toDouble())
+    }
+
+    override fun train(sars: List<ICMSample<S, A>>): List<Double> {
         return sars.map { trainSample(it) }
     }
 
@@ -84,7 +106,7 @@ class ICMModuleImpl<S : Identifiable, A : Identifiable>(
         val logDir: String? = null
 ) : ICMModule<S, A> {
     val sessioned = Sessioned(model, logDir)
-    override fun intrinsicReward(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double> {
+    override fun intrinsicReward(sars: List<ICMSample<S, A>>): List<Double> {
         val output = feedInput(sars)
                 .fetch(sessioned.output(ICMHolders.STATE_LOSS))
                 .run()
@@ -92,7 +114,7 @@ class ICMModuleImpl<S : Identifiable, A : Identifiable>(
         return sars.indices.map { output.getFloat(it.toLong()).toDouble() }
     }
 
-    override fun train(sars: List<BurlapAlgorithms.SARS<S, A>>): List<Double> {
+    override fun train(sars: List<ICMSample<S, A>>): List<Double> {
         val output = feedInput(sars)
                 .addTarget(sessioned.op(ICMHolders.TRAIN_STEP))
                 .fetch(sessioned.output(ICMHolders.STATE_LOSS))
@@ -103,14 +125,14 @@ class ICMModuleImpl<S : Identifiable, A : Identifiable>(
         return sars.indices.map { output.getFloat(it.toLong()).toDouble() }
     }
 
-    private fun feedInput(sars: List<BurlapAlgorithms.SARS<S, A>>): Session.Runner {
+    private fun feedInput(sars: List<ICMSample<S, A>>): Session.Runner {
         return sessioned.session.runner()
-                .feed(sessioned.input(ICMHolders.ACTION), actionEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.a }))
-                .feed(sessioned.input(ICMHolders.STATE_PRIME), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.sp }))
-                .feed(sessioned.input(ICMHolders.STATE), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.s }))
+                .feed(sessioned.input(ICMHolders.ACTION), actionEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.action }))
+                .feed(sessioned.input(ICMHolders.STATE_PRIME), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.statePrime }))
+                .feed(sessioned.input(ICMHolders.STATE), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.state }))
     }
 
-    override fun intrinsicReward(sars: BurlapAlgorithms.SARS<S, A>): Double {
+    override fun intrinsicReward(sars: ICMSample<S, A>): Double {
         return intrinsicReward(listOf(sars)).first()
     }
 }

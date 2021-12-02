@@ -4,6 +4,7 @@ import eu.iv4xr.framework.model.ProbabilisticModel
 import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.distribution.expectedValue
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
+import eu.iv4xr.framework.model.rl.valuefunctions.QFunction
 import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
 import eu.iv4xr.framework.model.rl.valuefunctions.Valuefunction
@@ -97,6 +98,14 @@ fun <State : Identifiable, Action : Identifiable> expectedUpdate(state: State, g
         }
     }
     return Target(state, max)
+}
+
+fun <State : Identifiable, Action : Identifiable> deepQValue(state: State, action: Action, gamma: Float, mdp: MDP<State, Action>, qFunction: QFunction<State, Action>, depth: Int): Double {
+    return when (depth) {
+        0 -> qFunction.qValue(state, action).toDouble()
+        1 -> mdp.transition(state, action).expectedValue { sp -> mdp.reward(state, action, sp).expectedValue() + gamma * qFunction.stateValue(sp, mdp) }
+        else -> mdp.transition(state, action).expectedValue { sp -> mdp.reward(state, action, sp).expectedValue() + gamma * mdp.possibleActions(sp).maxOf { deepQValue(sp, it, gamma, mdp, qFunction, depth - 1) } }
+    }
 }
 
 fun <State : Identifiable, Action : Identifiable> bellmanResidual(states: List<State>, valueFunction: TrainableValuefunction<State>, mdp: MDP<State, Action>, gamma: Float): Double {

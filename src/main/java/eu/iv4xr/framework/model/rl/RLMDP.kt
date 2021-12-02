@@ -49,13 +49,34 @@ open class RLMDP<State : Identifiable, Action : Identifiable>(private val model:
         return model.initialState().map { StateWithGoalProgress(goals.map { false }, it) }
     }
 
-
 }
 
+interface Heuristic<State : Identifiable, Action : Identifiable> {
+    fun reward(state: State, action: Action, statePrime: State): Double
+}
+
+class HeuristicMDP<State : Identifiable, Action : Identifiable>(private val mdp: MDP<State, Action>) : MDP<State, Action> by mdp {
+    private val heuristics = mutableListOf<Heuristic<State, Action>>()
+
+    fun addHeuristic(heuristic: Heuristic<State, Action>) = heuristics.add(heuristic)
+
+    override fun reward(current: State, action: Action, newState: State): Distribution<Double> {
+        return mdp.reward(current, action, newState).map {
+            it + heuristics.sumByDouble { it.reward(current, action, newState) }
+        }
+    }
+}
+
+
 class NonTerminalRLMDP<State : Identifiable, Action : Identifiable>(private val model: ProbabilisticModel<State, Action>, private val goals: List<MDPGoal>) : RLMDP<State, Action>(model, goals) {
+
+    val heuristics = mutableListOf<Heuristic<State, Action>>()
+
     override fun reward(current: StateWithGoalProgress<State>, action: Action, newState: StateWithGoalProgress<State>): ConstantDistribution<Double> {
         if (isTerminal(current)) return always(0.0)
-        return super.reward(current, action, newState)
+        return super.reward(current, action, newState).map {
+            it + heuristics.sumByDouble { it.reward(current.state, action, newState.state) }
+        }
     }
 
     override fun transition(current: StateWithGoalProgress<State>, action: Action): Distribution<StateWithGoalProgress<State>> {

@@ -18,7 +18,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
 
     lateinit var policy: Policy<StateWithGoalProgress<ModelState>, Action>
 
-    lateinit var mdp: MDP<StateWithGoalProgress<ModelState>, Action>
+    lateinit var mdp: NonTerminalRLMDP<ModelState, Action>
 
     val rewards = mutableListOf<Reward>()
 
@@ -60,8 +60,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
     override fun update() {
         lockEnvironment()
         try {
-            state.updateState()
-            val modelState = model.convertState(state)
+            val modelState = currentState()
             if (model.isTerminal(modelState)) {
                 handleTerminalState(modelState)
                 return
@@ -69,7 +68,6 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
             val goalProgress = convert(goal) { it.status.success() }
             val stateWithProgress = StateWithGoalProgress(goalProgress, modelState)
             val action = policy.action(stateWithProgress)
-            println(action.supportWithDensities())
             val sampledAction = action.sample(random)
             transitions.steps.add(Transition(modelState, sampledAction))
             val proposal = model.executeAction(sampledAction, state)
@@ -87,6 +85,11 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
         } finally {
             unlockEnvironment()
         }
+    }
+
+    fun currentState(): ModelState {
+        state.updateState()
+        return model.convertState(state)
     }
 
     override fun restart() {
