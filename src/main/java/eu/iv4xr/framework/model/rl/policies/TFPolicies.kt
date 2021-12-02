@@ -1,14 +1,11 @@
 package eu.iv4xr.framework.model.rl.policies
 
-import burlap.statehashing.HashableState
 import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions.discrete
 import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.MDP
 import eu.iv4xr.framework.model.rl.algorithms.*
 import eu.iv4xr.framework.model.rl.approximation.FeatureVectorFactory
-import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
-import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassAction
 import eu.iv4xr.framework.model.rl.valuefunctions.QTarget
 import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableQFunction
@@ -39,7 +36,19 @@ fun FloatNdArray.print() {
     }
 }
 
+fun FloatNdArray.prettyString(): String {
+    if (shape().asArray().isEmpty()) return this.getFloat().toString()
+    if (shape().asArray().size == 1) {
+        return (0 until shape().asArray().first()).map { this.getFloat(it) }.toString()
+    }
+    val smaller = (
+            (0 until shape().asArray().first()).flatMap { this[it].prettyString().lines().map { "\t" + it } }
+            ).joinToString("\n")
+    return "[\n"+smaller+"\n]"
+}
+
 fun TFloat32.print() {
+
     repeat(shape().asArray()[0].toInt()) {
         this[it.toLong()].print()
         println()

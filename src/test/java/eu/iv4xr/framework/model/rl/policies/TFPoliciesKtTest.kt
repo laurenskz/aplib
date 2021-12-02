@@ -8,6 +8,7 @@ import org.junit.Test
 import org.junit.jupiter.api.Assertions.*
 import org.tensorflow.Graph
 import org.tensorflow.Session
+import org.tensorflow.ndarray.NdArrays
 import org.tensorflow.ndarray.Shape
 import org.tensorflow.op.Ops
 import org.tensorflow.op.core.Placeholder
@@ -46,5 +47,12 @@ internal class TFPoliciesKtTest {
                 .first() as TFloat32
         out.print()
 //        println(out.getFloat())
+    }
+
+    @Test
+    fun testString() {
+        val of = Shape.of(3,10,10)
+        val ndArray = NdArrays.ofFloats(of)
+        println(ndArray.prettyString())
     }
 }

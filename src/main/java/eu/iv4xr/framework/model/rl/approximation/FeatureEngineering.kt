@@ -11,24 +11,29 @@ interface DataBuffer {
     fun set(index: Int, value: Double)
 }
 
-interface NdDataBuffer : DataBuffer {
+interface NdDataBuffer {
     fun set(value: Double, vararg index: Long)
 
-    override fun set(index: Int, value: Double) {
-        set(value, index.toLong())
-    }
 }
 
-class TensorBuffer(val tensor: TFloat32, val dims: LongArray) : NdDataBuffer {
+class TensorBuffer(val tensor: TFloat32, val dims: LongArray) : NdDataBuffer, DataBuffer {
     override fun set(value: Double, vararg index: Long) {
         tensor.setFloat(value.toFloat(), *(dims + index))
     }
 
+    override fun set(index: Int, value: Double) {
+        tensor.setFloat(value.toFloat(), *(dims + index.toLong()))
+    }
+
 }
 
-class NDArrayBuffer(val buffer: FloatNdArray, val dims: LongArray) : NdDataBuffer {
+class NDArrayBuffer(val buffer: FloatNdArray, val dims: LongArray) : NdDataBuffer, DataBuffer {
     override fun set(value: Double, vararg index: Long) {
         buffer.setFloat(value.toFloat(), *(dims + index))
+    }
+
+    override fun set(index: Int, value: Double) {
+        buffer.setFloat(value.toFloat(), *(dims + index.toLong()))
     }
 }
 
@@ -50,10 +55,37 @@ interface FeatureVectorFactory<T> {
     fun setTensorFeatures(t: T, tensor: TFloat32, index: LongArray) = tensor.also { setFrom(t, TensorBuffer(it, index), 0) }
     fun setNdArrayFeatures(t: T, tensor: FloatNdArray, index: LongArray) = tensor.also { setFrom(t, NDArrayBuffer(it, index), 0) }
     fun setFrom(t: T, result: DataBuffer, start: Int)
-    fun setFrom(t: T, result: NdDataBuffer, start: LongArray) = setFrom(t, result, start.first().toInt())
     fun count(): Int
     fun shape(): LongArray = longArrayOf(count().toLong())
 }
+
+interface TensorFactory<T> {
+    fun setFrom(t: T, result: NdDataBuffer, start: LongArray)
+    fun setTensorFeatures(t: T, tensor: TFloat32, index: LongArray) = tensor.also { setFrom(t, TensorBuffer(it, index), longArrayOf()) }
+    fun setNdArrayFeatures(t: T, tensor: FloatNdArray, index: LongArray) = tensor.also { setFrom(t, NDArrayBuffer(it, index), longArrayOf()) }
+}
+
+class GridEncoder<T>(val expand: (T) -> Sequence<LongArray>) : TensorFactory<T> {
+    override fun setFrom(t: T, result: NdDataBuffer, start: LongArray) {
+        expand(t).forEach {
+            result.set(1.0, *(start + it))
+        }
+    }
+
+}
+
+fun encode(indices: List<Vec3>, predicate: (Vec3) -> Boolean): List<LongArray> {
+    return indices.mapNotNull {
+        it.takeIf(predicate)
+    }.map { longArrayOf(it.x.toLong(), it.y.toLong()) }
+}
+
+class TensorOnehotEncoder<T>(val index: (T) -> LongArray) : TensorFactory<T> {
+    override fun setFrom(t: T, result: NdDataBuffer, start: LongArray) {
+        result.set(1.0, *(start + index(t)))
+    }
+}
+
 
 typealias FeatureActionFactory<S, A> = FeatureVectorFactory<Pair<S, A>>
 
