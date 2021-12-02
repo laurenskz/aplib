@@ -1,8 +1,6 @@
 package eu.iv4xr.framework.model.rl.algorithms
 
-import eu.iv4xr.framework.model.distribution.Distribution
-import eu.iv4xr.framework.model.distribution.always
-import eu.iv4xr.framework.model.distribution.expectedValue
+import eu.iv4xr.framework.model.distribution.*
 import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.MDP
 import eu.iv4xr.framework.model.rl.Policy
@@ -26,6 +24,18 @@ class ExplorationPolicy<S : Identifiable, A : Identifiable>(val mdp: MDP<S, A>, 
         return always(intrinsicRewards.maxByOrNull { it.second }!!.first)
 //        return Distributions.softmax(intrinsicRewards.toMap())
     }
+}
+
+class ICMEGreedyPolicy<S : Identifiable, A : Identifiable>(val mdp: MDP<S, A>, val random: Random, val icmModule: ICMModule<S, A>, val greedy: Policy<S, A>) : Policy<S, A> {
+    override fun action(state: S): Distribution<A> {
+        val sars = mdp.executeAction(mdp.possibleActions(state).toList().random(random), state, random)
+        val epsilon = icmModule.intrinsicReward(sars.toICM())
+        return flip(epsilon).chain {
+            if (it) Distributions.uniform(mdp.possibleActions(state).toList())
+            else greedy.action(state)
+        }
+    }
+
 }
 
 class ExplorationNode<S : Identifiable, A : Identifiable>(val state: S) : Comparable<ExplorationNode<S, A>> {
@@ -78,7 +88,7 @@ class ExplorationWithQueue<S : Identifiable, A : Identifiable>(
         val qLearning = OffPolicyQLearning(exploreFun, gamma.toFloat(), mdp, random)
         var i = 0
         while (i < maxSteps) {
-            i++
+            println(i++)
             var state = mdp.initialState().sample(random)
             val steps = mutableListOf<BurlapAlgorithms.SARS<S, A>>()
             var done = false
