@@ -10,13 +10,16 @@ import eu.iv4xr.framework.model.rl.valuefunctions.QTarget
 import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableQFunction
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
+import org.nd4j.linalg.api.ops.impl.layers.convolution.Conv2D
 import org.tensorflow.*
 import org.tensorflow.ndarray.FloatNdArray
 import org.tensorflow.ndarray.NdArrays
+import org.tensorflow.ndarray.Shape
 import org.tensorflow.ndarray.Shape.*
 import org.tensorflow.op.Op
 import org.tensorflow.op.Ops
 import org.tensorflow.op.core.*
+import org.tensorflow.op.nn.Conv2d
 import org.tensorflow.op.summary.*
 import org.tensorflow.types.TFloat32
 import org.tensorflow.types.TInt32
@@ -44,7 +47,7 @@ fun FloatNdArray.prettyString(): String {
     val smaller = (
             (0 until shape().asArray().first()).flatMap { this[it].prettyString().lines().map { "\t" + it } }
             ).joinToString("\n")
-    return "[\n"+smaller+"\n]"
+    return "[\n" + smaller + "\n]"
 }
 
 fun TFloat32.print() {
@@ -197,11 +200,26 @@ class TFPolicy<State : Identifiable, A : Identifiable>(val factory: FeatureVecto
     }
 }
 
+fun TFloat32.toNdArray() = NdArrays.ofFloats(shape()).also { this.copyTo(it) }
+
 data class Model(val variables: MutableMap<String, Variable<TFloat32>>, val tf: Ops, val logs: MutableList<Operand<TString>>)
 
 interface Layer {
     fun transform(model: Model, input: Operand<TFloat32>): Operand<TFloat32>
+    fun createConcrete(input: Shape): Sessioned {
+        return Sessioned(object : ModelDefBuilder {
+
+            override fun create(model: Model): ModelOperations {
+                val placeholder = model.tf.placeholder(TFloat32::class.java, Placeholder.shape(input))
+                val out = transform(model, placeholder)
+                return ModelOperations(
+                        mapOf("in" to placeholder), mapOf("out" to out), mapOf()
+                )
+            }
+        }, logDir = null)
+    }
 }
+
 
 class Sequential(vararg val layers: Layer) : Layer {
 
@@ -230,6 +248,13 @@ fun dense(outSize: Long, name: String) = graph {
     val scope = tf.withSubScope("dense")
     val raw = rawLayer(outSize, name).transform(this.copy(tf = scope), it)
     scope.nn.relu(raw)
+}
+
+fun convLayer(width: Long, height: Long, filterCount: Long, name: String) = graph {
+    val w = variables.getOrPut("${name}_filters") {
+        tf.variable(tf.random.randomUniform(tf.constant(longArrayOf(height, width, it.shape().size(-1), filterCount)), TFloat32::class.java))
+    }
+    tf.nn.conv2d(it, w, listOf(1L, 1L, 1L, 1L), "VALID")
 }
 
 fun rawLayer(outSize: Long) = graph {
@@ -357,6 +382,7 @@ class TFRewardLogger(val sessioned: Sessioned, val writeEpisodes: Int = 100) : C
     }
 }
 
+
 class Sessioned(builder: ModelDefBuilder, val logDir: String?) {
     val graph = Graph()
     var tf = Ops.create(graph)
@@ -395,6 +421,11 @@ class Sessioned(builder: ModelDefBuilder, val logDir: String?) {
         runner.run()
         logDir?.also { FileOutputStream("$it/graph.pbtxt").writer().write(graph.toGraphDef().toString()) }
     }
+
+    fun run(input: TFloat32) = session.runner()
+            .feed(signature.inputs.values.first(), input)
+            .fetch(signature.outputs.values.first())
+            .run().first()
 
     fun input(any: Any): Operand<*> {
         return signature.inputs[any] ?: error("Input not found:$any")

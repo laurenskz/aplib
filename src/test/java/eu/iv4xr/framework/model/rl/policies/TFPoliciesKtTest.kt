@@ -6,6 +6,7 @@ import eu.iv4xr.framework.model.rl.approximation.DoubleFeature
 import eu.iv4xr.framework.model.rl.approximation.from
 import org.junit.Test
 import org.junit.jupiter.api.Assertions.*
+import org.tensorflow.ConcreteFunction
 import org.tensorflow.Graph
 import org.tensorflow.Session
 import org.tensorflow.ndarray.NdArrays
@@ -51,8 +52,19 @@ internal class TFPoliciesKtTest {
 
     @Test
     fun testString() {
-        val of = Shape.of(3,10,10)
+        val of = Shape.of(3, 10, 10)
         val ndArray = NdArrays.ofFloats(of)
         println(ndArray.prettyString())
+    }
+
+    @Test
+    fun testConv() {
+        val of = Shape.of(1, 10, 10, 3)
+        val ndArray = NdArrays.ofFloats(of)
+        println(ndArray.prettyString())
+        val function = convLayer(3, 3, 2, "bab").createConcrete(of)
+        val output = function.run(TFloat32.tensorOf(ndArray)) as TFloat32
+        println(output.shape())
+        println(output.toNdArray().prettyString())
     }
 }
