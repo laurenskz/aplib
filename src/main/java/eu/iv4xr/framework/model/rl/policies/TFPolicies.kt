@@ -257,6 +257,15 @@ fun convLayer(width: Long, height: Long, filterCount: Long, name: String) = grap
     tf.nn.conv2d(it, w, listOf(1L, 1L, 1L, 1L), "VALID")
 }
 
+fun maxPoolLayer(width: Int, height: Int, stride: Int) = graph {
+    tf.nn.maxPool(it, tf.constant(intArrayOf(1, width, height, 1)), tf.constant(intArrayOf(1, stride, stride, 1)), "VALID")
+}
+
+fun flatten() = graph {
+    val total = it.shape().tail().asArray().fold(1, Long::times)
+    tf.reshape(it, tf.constant(longArrayOf(UNKNOWN_SIZE, total)))
+}
+
 fun rawLayer(outSize: Long) = graph {
     val keys = variables.keys
     val name = generateSequence(0) { it + 1 }.first { !keys.contains("layer:${it}_w") }
@@ -443,6 +452,8 @@ class Sessioned(builder: ModelDefBuilder, val logDir: String?) {
 }
 
 data class ModelOperations(val inputs: Map<Any, Operand<*>>, val outputs: Map<Any, Operand<*>>, val methods: Map<Any, Op>)
+
+
 interface ModelDefBuilder {
     fun create(model: Model): ModelOperations
 }

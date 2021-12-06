@@ -37,6 +37,7 @@ class OffPolicyQLearning<S : Identifiable, A : Identifiable>(val qFunction: Trai
         val epolicy = EGreedyPolicy(0.1, mdp, GreedyPolicy(qFunction, mdp))
 
         repeat(episodes) {
+            println(it)
             var state = mdp.initialState().sample(random)
             while (!mdp.isTerminal(state)) {
                 val sars = mdp.sampleSARS(epolicy, state, random)

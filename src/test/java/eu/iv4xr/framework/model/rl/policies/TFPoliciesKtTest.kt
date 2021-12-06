@@ -59,12 +59,19 @@ internal class TFPoliciesKtTest {
 
     @Test
     fun testConv() {
-        val of = Shape.of(1, 10, 10, 3)
+        val of = Shape.of(2, 10, 10, 3)
         val ndArray = NdArrays.ofFloats(of)
-        println(ndArray.prettyString())
-        val function = convLayer(3, 3, 2, "bab").createConcrete(of)
+//        println(ndArray.prettyString())
+        val function = Sequential(
+                convLayer(4, 4, 3, "bab"),
+                maxPoolLayer(2, 2, 1),
+                convLayer(3, 3, 3, "bab"),
+                maxPoolLayer(2, 2, 1),
+                flatten(),
+                dense(4)
+        ).createConcrete(of)
         val output = function.run(TFloat32.tensorOf(ndArray)) as TFloat32
         println(output.shape())
-        println(output.toNdArray().prettyString())
+//        println(output.toNdArray().prettyString())
     }
 }
