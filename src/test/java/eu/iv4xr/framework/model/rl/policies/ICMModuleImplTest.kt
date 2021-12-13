@@ -12,11 +12,23 @@ import kotlin.system.exitProcess
 internal class ICMModuleImplTest {
 
     @Test
+    fun testEncoding() {
+        val size = 3
+        val grid = Grid(size, size, (0 until size).flatMap { x -> (0 until size).map { y -> Square(x, y) } })
+        val factory = GridWorldState.tensorFactoryForGrid(grid)
+        val tensor = factory.createFrom(listOf(
+                GridWorldState(Square(2, 2), 0)
+        ))
+        println(tensor.prettyString())
+//        val
+    }
+
+    @Test
     fun testICM() {
         val size = 4
         val goal = Square(20, 20)
         val actionFactory = GridWorldAction.factory
-        val grid = Grid((0..size).flatMap { x -> (0..size).map { y -> Square(x, y) } })
+        val grid = Grid(size, size, (0..size).flatMap { x -> (0..size).map { y -> Square(x, y) } })
         println(grid.squares.size)
         val factory = GridWorldState.factoryForGrid(grid)
         val model = ICMModel(0.2, 0.9, factory.count(), actionFactory.count(),

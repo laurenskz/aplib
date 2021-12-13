@@ -23,24 +23,35 @@ class TFQFunction<S : Identifiable, A : Identifiable>(val factory: TensorFactory
     val sessioned = Sessioned(modelDefBuilder(actions.size), null)
 
     override fun qValue(state: S, action: A): Float {
-        val index = actions[action]?.toLong() ?: error("Action not recognized")
-        return (sessioned.session.runner()
-                .feed(sessioned.input(TFQOperations.STATE_INPUT), factory.createFrom(state))
+        return qValues(listOf(state to action)).first()
+    }
+
+    override fun qValues(states: List<Pair<S, A>>): List<Float> {
+        val indices = states.map { actions[it.second] ?: error("Unrecognized action:${it.second}") }
+        val input = states.map { it.first }
+        val output = sessioned.session.runner()
+                .feed(sessioned.input(TFQOperations.STATE_INPUT), factory.createFrom(input))
                 .fetch(sessioned.output(TFQOperations.OUTPUT))
                 .run()
                 .first()
-                as TFloat32)
-                .getFloat(0, index)
+                as TFloat32
+        return input.indices.map { output.getFloat(it.toLong(), indices[it].toLong()) }
+    }
+
+    override fun train(targets: List<QTarget<S, A>>) {
+        val indices = targets.map { actions[it.action] ?: error("Unrecognized action:${it.action}") }
+        val inputs = targets.map { it.state }
+        sessioned.session.runner()
+                .feed(sessioned.input(TFQOperations.STATE_INPUT), factory.createFrom(inputs))
+                .feed(sessioned.input(TFQOperations.ACTION_INDEX), TInt32.vectorOf(*indices.toIntArray()))
+                .feed(sessioned.input(TFQOperations.TARGETS), TFloat32.vectorOf(*FloatArray(targets.size) { targets[it].target }))
+                .addTarget(sessioned.op(TFQOperations.TRAIN))
+                .run()
+
     }
 
     override fun train(target: QTarget<S, A>) {
-        val index = actions[target.action] ?: error("Action not recognized")
-        sessioned.session.runner()
-                .feed(sessioned.input(TFQOperations.STATE_INPUT), factory.createFrom(target.state))
-                .feed(sessioned.input(TFQOperations.ACTION_INDEX), TInt32.vectorOf(index))
-                .feed(sessioned.input(TFQOperations.TARGETS), TFloat32.vectorOf(target.target))
-                .addTarget(sessioned.op(TFQOperations.TRAIN))
-                .run()
+        train(listOf(target))
     }
 }
 
@@ -52,8 +63,12 @@ class QModelDefBuilder(val processing: Layer, val inShape: Shape, val outSize: I
         val targets = model.tf.placeholder(TFloat32::class.java, Placeholder.shape(of(UNKNOWN_SIZE)))
         val qs = rawLayer(outSize.toLong()).transform(model, output)
         val mask = model.tf.oneHot(actions, model.tf.constant(outSize), model.tf.constant(1f), model.tf.constant(0f))
-        val maskedTargets = model.tf.math.mul(targets, mask)
-        val loss = model.tf.math.mean(model.tf.math.square(model.tf.math.mul(model.tf.math.sub(maskedTargets, qs), mask)), model.tf.constant(1))
+        val maskedTargets = model.tf.math.mul(model.tf.expandDims(targets, model.tf.constant(-1)), mask)
+        val square = model.tf.math.square(model.tf.math.sub(maskedTargets, qs))
+        val maskedLoss = model.tf.math.mul(square, mask)
+        println(maskedTargets.shape())
+        val loss = model.tf.math.mean(model.tf.math.mean(maskedLoss, model.tf.constant(1)), model.tf.constant(0))
+        println(loss.shape())
         val trainStep = optimize(model.withScope("Optimize"), loss, model.tf.constant(lr), add = false)
         return ModelOperations(
                 mapOf(TFQOperations.TARGETS to targets, TFQOperations.ACTION_INDEX to actions, TFQOperations.STATE_INPUT to input),

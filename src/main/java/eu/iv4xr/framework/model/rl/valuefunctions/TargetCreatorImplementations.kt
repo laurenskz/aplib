@@ -16,6 +16,8 @@ class TDQTargetCreator<S : Identifiable, A : Identifiable>(val valuefunction: QF
     }
 }
 
+
+
 class NStepTDQTargetCreator<S : Identifiable, A : Identifiable>(val valuefunction: QFunction<S, A>, val gamma: Float, val n: Int) : QTargetCreator<S, A> {
 
     override fun createTargets(episodes: List<BurlapAlgorithms.Episode<S, A>>, mdp: MDP<S, A>): List<QTarget<S, A>> {

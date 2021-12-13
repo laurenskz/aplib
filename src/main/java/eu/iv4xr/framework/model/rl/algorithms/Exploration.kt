@@ -64,6 +64,51 @@ class ICMMDP<S : Identifiable, A : Identifiable>(val icmModule: ICMModule<S, A>,
     }
 }
 
+interface GoalDiscoverer<S : Identifiable, A : Identifiable> {
+    fun explore(): BurlapAlgorithms.Episode<S, A>
+}
+
+class RandomStartICM<S : Identifiable, A : Identifiable>(
+        val mdp: MDP<S, A>,
+        val icmModule: ICMModule<S, A>,
+        private val exploreFun: TrainableQFunction<S, A>,
+        val gamma: Float,
+        val random: Random,
+        val maxSteps: Int = Int.MAX_VALUE,
+        val epsilon: Double = 0.2,
+) : GoalDiscoverer<S, A> {
+    private val ePolicy = EGreedyPolicy(epsilon, mdp, GreedyPolicy(exploreFun, mdp))
+
+    override fun explore(): BurlapAlgorithms.Episode<S, A> {
+        val starts = mutableMapOf<S, List<BurlapAlgorithms.SARS<S, A>>>()
+        mdp.initialState().support().forEach {
+            starts[it] = emptyList()
+        }
+        val qLearning = OffPolicyQLearning(exploreFun, gamma, mdp, random)
+        var i = 0
+        while (i++ < maxSteps) {
+            val start = starts.keys.random(random)
+            var state = start
+            val steps = mutableListOf<BurlapAlgorithms.SARS<S, A>>()
+            steps.addAll(starts[start] ?: error("No prefix for episode"))
+            while (!mdp.isTerminal(state)) {
+                val sars = mdp.sampleSARS(ePolicy, state, random)
+                val reward = icmModule.train(listOf(sars.toICM())).first()
+                qLearning.train(sars.copy(r = reward))
+                steps.add(sars)
+                state = sars.sp
+            }
+            val episode = BurlapAlgorithms.Episode(steps)
+            if (episode.steps.any { it.r > 0 }) {
+                return episode
+            }
+            episode.steps.forEachIndexed { index, s -> starts[s.s] = episode.steps.subList(0, index) }
+        }
+        return BurlapAlgorithms.Episode(emptyList())
+    }
+
+}
+
 class ExplorationWithQueue<S : Identifiable, A : Identifiable>(
         val mdp: MDP<S, A>,
         val icmModule: ICMModule<S, A>,
@@ -152,6 +197,22 @@ class ExplorationWithQueue<S : Identifiable, A : Identifiable>(
         }
         return BurlapAlgorithms.Episode(steps)
     }
+}
+
+class ExploreAndLearn<S : Identifiable, A : Identifiable>(
+        val random: Random,
+        val qFunction: TrainableQFunction<S, A>,
+        val goalDiscoverer: GoalDiscoverer<S, A>,
+        val gamma: Float,
+        val trainRepititions: Int,
+) : RLAlgorithm<S, A> {
+    override fun train(mdp: MDP<S, A>): Policy<S, A> {
+        val episode = goalDiscoverer.explore()
+        val learning = OffPolicyQLearning(qFunction, gamma, mdp, random)
+        repeat(trainRepititions) { learning.train(episode) }
+        return GreedyPolicy(qFunction, mdp)
+    }
+
 }
 
 class ExploreAndConnect<S : Identifiable, A : Identifiable>(

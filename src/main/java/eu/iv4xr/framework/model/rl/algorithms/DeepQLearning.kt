@@ -189,22 +189,27 @@ class DeepQLearning<S : Identifiable, A : Identifiable>(val qFunction: Trainable
     override fun train(mdp: MDP<S, A>): GreedyPolicy<S, A> {
         val memory = mutableListOf<BurlapAlgorithms.Episode<S, A>>()
         val greedy = GreedyPolicy(qFunction, mdp)
-        val policy = EGreedyPolicy(epsilon, mdp, greedy)
+        val policy = EGreedyPolicy(1.0, mdp, greedy)
 
         for (i in (0 until trainIterations)) {
             val sars = mdp.sampleEpisode(policy, random)
-            memory.add(sars)
-            performTraining(i, memory, mdp)
+            if (sars.totalReward(gamma.toDouble()) > 0.01) {
+                println(i)
+                memory.add(sars)
+                repeat(100) {
+                    performTraining(i, memory, mdp)
+                }
+                return greedy
+            }
         }
         return greedy
     }
 
     private fun performTraining(i: Int, memory: List<BurlapAlgorithms.Episode<S, A>>, mdp: MDP<S, A>) {
-        if (i > batchSize && (i % 4) == 0) {
-            val samples = memory.takeRandom(batchSize, random)
-            val targets = QTargetCreator.createTargets(samples, mdp)
-            qFunction.train(targets)
-        }
+        println(mdp.initialState().sample(random).let { qFunction.stateValue(it, mdp) })
+        val samples = memory.takeRandom(batchSize, random)
+        val targets = QTargetCreator.createTargets(samples, mdp)
+        qFunction.train(targets)
     }
 }
 
@@ -213,7 +218,11 @@ class DeepSARSA<S : Identifiable, A : Identifiable>(val qFunction: TrainableQFun
         val greedy = GreedyPolicy(qFunction, mdp)
         val policy = EGreedyPolicy(epsilon, mdp, greedy)
         (0..episodes).forEach {
-            qFunction.train(QTargetCreator.createTargets(listOf(mdp.sampleEpisode(policy, random)), mdp))
+            val element = mdp.sampleEpisode(policy, random)
+            println("init:" + qFunction.stateValue(mdp.initialState().sample(random), mdp))
+            qFunction.train(QTargetCreator.createTargets(listOf(element), mdp))
+            println("reward")
+            println(element.totalReward(gamma.toDouble()))
 //            policy.epsilon = 1.0 - (it / episodes.toDouble())
         }
         return greedy

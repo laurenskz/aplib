@@ -12,7 +12,7 @@ class TFQFunctionTest {
     fun test() {
         val size = 10
         val goal = Square(8, 8)
-        val grid = (0..size).flatMap { x -> (0..size).map { y -> Square(x, y) } }.let { Grid(it) }
+        val grid = (0..size).flatMap { x -> (0..size).map { y -> Square(x, y) } }.let { Grid(size, size, it) }
         val mdp = GridWorld(grid, goal, 1000)
         val factory = GridWorldState.factoryForGrid(grid)
         val qFunction = TFQFunction(factory, mdp) {

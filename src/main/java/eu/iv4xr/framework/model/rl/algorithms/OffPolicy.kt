@@ -1,11 +1,8 @@
 package eu.iv4xr.framework.model.rl.algorithms
 
-import eu.iv4xr.framework.model.rl.Identifiable
-import eu.iv4xr.framework.model.rl.MDP
+import eu.iv4xr.framework.model.rl.*
 import eu.iv4xr.framework.model.rl.burlapadaptors.BurlapAlgorithms
-import eu.iv4xr.framework.model.rl.expectedUpdate
 import eu.iv4xr.framework.model.rl.policies.GreedyPolicy
-import eu.iv4xr.framework.model.rl.qValue
 import eu.iv4xr.framework.model.rl.valuefunctions.QTarget
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableQFunction
 import eu.iv4xr.framework.model.rl.valuefunctions.ValueFromQ
@@ -34,7 +31,10 @@ class OffPolicyQLearning<S : Identifiable, A : Identifiable>(val qFunction: Trai
     }
 
     fun trainEPolicy(episodes: Int) {
-        val epolicy = EGreedyPolicy(0.1, mdp, GreedyPolicy(qFunction, mdp))
+        trainEPolicy(episodes, EGreedyPolicy(0.1, mdp, GreedyPolicy(qFunction, mdp)))
+    }
+
+    fun trainEPolicy(episodes: Int, epolicy: Policy<S, A>) {
 
         repeat(episodes) {
             println(it)

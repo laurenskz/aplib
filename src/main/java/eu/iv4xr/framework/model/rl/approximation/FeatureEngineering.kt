@@ -1,11 +1,13 @@
 package eu.iv4xr.framework.model.rl.approximation
 
 import eu.iv4xr.framework.model.rl.Identifiable
+import eu.iv4xr.framework.model.rl.StateWithGoalProgress
 import eu.iv4xr.framework.spatial.Vec3
 import org.tensorflow.ndarray.FloatNdArray
 import org.tensorflow.ndarray.NdArrays
 import org.tensorflow.ndarray.Shape
 import org.tensorflow.ndarray.Shape.UNKNOWN_SIZE
+import org.tensorflow.ndarray.Shape.of
 import org.tensorflow.types.TFloat32
 import kotlin.reflect.KClass
 import kotlin.reflect.safeCast
@@ -77,7 +79,22 @@ interface TensorFactory<T> {
     fun setFrom(t: T, result: NdDataBuffer, start: LongArray)
     fun setTensorFeatures(t: T, tensor: TFloat32, index: LongArray) = tensor.also { setFrom(t, TensorBuffer(it, index), longArrayOf()) }
     fun setNdArrayFeatures(t: T, tensor: FloatNdArray, index: LongArray) = tensor.also { setFrom(t, NDArrayBuffer(it, index), longArrayOf()) }
-    fun createFrom(t: T) = NdArrays.ofFloats(shape.tail().prepend(1)).also { setNdArrayFeatures(t, it, longArrayOf(0)) }.let { TFloat32.tensorOf(it) }
+    fun createFrom(ts: List<T>) = NdArrays.ofFloats(shape.tail().prepend(ts.size.toLong())).also {
+        ts.forEachIndexed { i, t ->
+            setNdArrayFeatures(t, it, longArrayOf(i.toLong()))
+        }
+    }.let {
+        TFloat32.tensorOf(it)
+    }
+}
+
+class NoOpStateEncoder<T : Identifiable>(private val factory: TensorFactory<T>) : TensorFactory<StateWithGoalProgress<T>> {
+    override val shape: Shape
+        get() = factory.shape
+
+    override fun setFrom(t: StateWithGoalProgress<T>, result: NdDataBuffer, start: LongArray) {
+        factory.setFrom(t.state, result, start)
+    }
 }
 
 class GridEncoder<T>(override val shape: Shape, val expand: (T) -> Sequence<LongArray>) : TensorFactory<T> {
@@ -86,8 +103,17 @@ class GridEncoder<T>(override val shape: Shape, val expand: (T) -> Sequence<Long
             result.set(1.0, *(start + it))
         }
     }
-
 }
+
+class Grid2d<T, B : Enum<B>>(val width: Int, val height: Int, val options: List<B>, val expand: (T) -> Sequence<Triple<Int, Int, B>>) : TensorFactory<T> by GridEncoder(
+        of(UNKNOWN_SIZE, width.toLong(), height.toLong(), options.size.toLong()),
+        {
+            expand(it).map {
+                longArrayOf(it.first.toLong(), it.second.toLong(), it.third.ordinal.toLong())
+
+            }
+        }
+)
 
 fun encode(indices: List<Vec3>, predicate: (Vec3) -> Boolean): List<LongArray> {
     return indices.mapNotNull {

@@ -9,7 +9,10 @@ import eu.iv4xr.framework.model.rl.approximation.*
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassAction
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
 import eu.iv4xr.framework.model.rl.policies.*
+import net.ericaro.neoitertools.Itertools
 import org.junit.Test
+import org.tensorflow.ndarray.Shape
+import org.tensorflow.ndarray.Shape.UNKNOWN_SIZE
 import kotlin.random.Random
 import kotlin.system.exitProcess
 
@@ -24,12 +27,25 @@ enum class GridWorldAction : DataClassAction {
 
 data class Square(val x: Int, val y: Int)
 
-data class Grid(val squares: List<Square>)
+data class Grid(val width: Int, val height: Int, val squares: List<Square>)
+
+enum class GridWorldSquare {
+    UNAVAILABLE, WALKABLE, PLAYER
+}
 
 data class GridWorldState(val position: Square, val steps: Int) : DataClassHashableState() {
     companion object {
         fun factoryForGrid(grid: Grid): FeatureVectorFactory<GridWorldState> {
             return CompositeFeature(listOf(OneHot(grid.squares).from { it.position }))
+        }
+
+        fun tensorFactoryForGrid(grid: Grid) = Grid2d<GridWorldState, GridWorldSquare>(grid.width, grid.height, GridWorldSquare.values().toList()) {
+            sequence {
+                yield(Triple(it.position.x, it.position.y, GridWorldSquare.PLAYER))
+                yieldAll(grid.squares.map {
+                    Triple(it.x, it.y, GridWorldSquare.WALKABLE)
+                })
+            }
         }
     }
 }
@@ -84,7 +100,7 @@ internal class ICMActorCriticTest {
 
         val size = 100
         val goal = Square(80, 80)
-        val grid = (0..size).flatMap { x -> (0..size).filter { flip(0.8).sample(Random) }.map { y -> Square(x, y) } }.let { Grid(it) }
+        val grid = (0..size).flatMap { x -> (0..size).filter { flip(0.8).sample(Random) }.map { y -> Square(x, y) } }.let { Grid(size, size, it) }
         val factory = GridWorldState.factoryForGrid(grid)
         val mdp = GridWorld(grid, goal, 100000)
         val actionRepeatingFactory = ActionRepeatingFactory(factory, mdp.allPossibleActions().toList())
@@ -123,7 +139,7 @@ internal class ICMActorCriticTest {
     fun testGenerator() {
         val size = 100
         val goal = Square(80, 80)
-        val grid = (0..size).flatMap { x -> (0..size).map { y -> Square(x, y) } }.let { Grid(it) }
+        val grid = (0..size).flatMap { x -> (0..size).map { y -> Square(x, y) } }.let { Grid(size, size, it) }
         val factory = GridWorldState.factoryForGrid(grid)
         val mdp = GridWorld(grid, goal, 100000)
         val actionRepeatingFactory = ActionRepeatingFactory(factory, mdp.allPossibleActions().toList())

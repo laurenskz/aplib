@@ -10,7 +10,6 @@ import eu.iv4xr.framework.model.rl.valuefunctions.QTarget
 import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableQFunction
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableValuefunction
-import org.nd4j.linalg.api.ops.impl.layers.convolution.Conv2D
 import org.tensorflow.*
 import org.tensorflow.ndarray.FloatNdArray
 import org.tensorflow.ndarray.NdArrays
@@ -19,13 +18,14 @@ import org.tensorflow.ndarray.Shape.*
 import org.tensorflow.op.Op
 import org.tensorflow.op.Ops
 import org.tensorflow.op.core.*
-import org.tensorflow.op.nn.Conv2d
+import org.tensorflow.op.random.RandomStandardNormal
 import org.tensorflow.op.summary.*
 import org.tensorflow.types.TFloat32
 import org.tensorflow.types.TInt32
 import org.tensorflow.types.TInt64
 import org.tensorflow.types.TString
 import java.io.FileOutputStream
+import kotlin.math.sqrt
 
 
 fun FloatNdArray.print() {
@@ -252,9 +252,13 @@ fun dense(outSize: Long, name: String) = graph {
 
 fun convLayer(width: Long, height: Long, filterCount: Long, name: String) = graph {
     val w = variables.getOrPut("${name}_filters") {
-        tf.variable(tf.random.randomUniform(tf.constant(longArrayOf(height, width, it.shape().size(-1), filterCount)), TFloat32::class.java))
+        val shape = longArrayOf(height, width, it.shape().size(-1), filterCount)
+        val n = shape.fold(1, Long::times)
+        val randomStandardNormal = tf.random.randomStandardNormal(tf.constant(shape), TFloat32::class.java)
+        tf.variable(tf.math.mul(randomStandardNormal, tf.constant(sqrt(2f / n))))
     }
-    tf.nn.conv2d(it, w, listOf(1L, 1L, 1L, 1L), "VALID")
+    val conv = tf.nn.conv2d(it, w, listOf(1L, 1L, 1L, 1L), "VALID")
+    tf.nn.relu(conv)
 }
 
 fun maxPoolLayer(width: Int, height: Int, stride: Int) = graph {
