@@ -64,7 +64,7 @@ interface FeatureVectorFactory<T> : TensorFactory<T> {
     //    fun setTensorFeatures(t: T, tensor: TFloat32, index: LongArray) = tensor.also { setFrom(t, TensorBuffer(it, index), 0) }
 //    fun setNdArrayFeatures(t: T, tensor: FloatNdArray, index: LongArray) = tensor.also { setFrom(t, NDArrayBuffer(it, index), 0) }
     override val shape: Shape
-        get() = Shape.of(UNKNOWN_SIZE, count().toLong())
+        get() = of(UNKNOWN_SIZE, count().toLong())
 
     fun setFrom(t: T, result: DataBuffer, start: Int)
     fun count(): Int

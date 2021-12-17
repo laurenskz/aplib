@@ -4,9 +4,7 @@ import eu.iv4xr.framework.model.distribution.Distribution
 import eu.iv4xr.framework.model.distribution.Distributions
 import eu.iv4xr.framework.model.distribution.always
 import eu.iv4xr.framework.model.distribution.flip
-import eu.iv4xr.framework.model.rl.Identifiable
-import eu.iv4xr.framework.model.rl.MDP
-import eu.iv4xr.framework.model.rl.Policy
+import eu.iv4xr.framework.model.rl.*
 import eu.iv4xr.framework.model.rl.algorithms.ModifiablePolicy
 import eu.iv4xr.framework.model.rl.algorithms.PolicyGradientTarget
 import eu.iv4xr.framework.model.rl.algorithms.RandomPolicy
@@ -15,7 +13,6 @@ import eu.iv4xr.framework.model.rl.approximation.FeatureVectorFactory
 import eu.iv4xr.framework.model.rl.approximation.MergedFeatureFactory
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassAction
 import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
-import eu.iv4xr.framework.model.rl.deepQValue
 import eu.iv4xr.framework.model.rl.valuefunctions.*
 import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import org.tensorflow.*
@@ -120,6 +117,12 @@ class LinearStateValueFunction<S>(
     }
 }
 
+class ValueFunctionWithoutProgress<S : Identifiable>(val wrapped: Valuefunction<StateWithGoalProgress<S>>) : Valuefunction<S> {
+    override fun value(state: S): Float {
+        return wrapped.value(StateWithGoalProgress(listOf(), state))
+    }
+}
+
 class SoftmaxPolicy<S : Identifiable, A : Identifiable>(
         val factory: FeatureActionFactory<S, A>,
         val mdp: MDP<S, A>,
@@ -142,12 +145,12 @@ class SoftmaxPolicy<S : Identifiable, A : Identifiable>(
 
     override fun update(target: PolicyGradientTarget<S, A>) {
         var gradLog = gradPreference(target.s, target.a)
-        val possibleActions = mdp.possibleActions(target.s).toList()
-        val prob = 1.0 / possibleActions.size
-        possibleActions.forEach {
+        val policy = action(target.s)
+        policy.support().forEach {
+            val score = policy.score(it)
             val features = factory.arrayFeatures(target.s to it)
             features.indices.forEach {
-                gradLog[it] -= prob * features[it]
+                gradLog[it] -= score * features[it]
             }
         }
         gradLog.indices.forEach {

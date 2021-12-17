@@ -6,6 +6,7 @@ import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.MDP
 import eu.iv4xr.framework.model.rl.algorithms.*
 import eu.iv4xr.framework.model.rl.approximation.FeatureVectorFactory
+import eu.iv4xr.framework.model.rl.approximation.TensorFactory
 import eu.iv4xr.framework.model.rl.valuefunctions.QTarget
 import eu.iv4xr.framework.model.rl.valuefunctions.Target
 import eu.iv4xr.framework.model.rl.valuefunctions.TrainableQFunction
@@ -18,7 +19,6 @@ import org.tensorflow.ndarray.Shape.*
 import org.tensorflow.op.Op
 import org.tensorflow.op.Ops
 import org.tensorflow.op.core.*
-import org.tensorflow.op.random.RandomStandardNormal
 import org.tensorflow.op.summary.*
 import org.tensorflow.types.TFloat32
 import org.tensorflow.types.TInt32
@@ -113,8 +113,8 @@ class QCountBasedICMModule<S : Identifiable, A : Identifiable>(
 
 class ICMModuleImpl<S : Identifiable, A : Identifiable>(
         val model: ICMModel,
-        val stateEncoder: FeatureVectorFactory<S>,
-        val actionEncoder: FeatureVectorFactory<A>,
+        val stateEncoder: TensorFactory<S>,
+        val actionEncoder: TensorFactory<A>,
         val logDir: String? = null
 ) : ICMModule<S, A> {
     val sessioned = Sessioned(model, logDir)
@@ -139,9 +139,9 @@ class ICMModuleImpl<S : Identifiable, A : Identifiable>(
 
     private fun feedInput(sars: List<ICMSample<S, A>>): Session.Runner {
         return sessioned.session.runner()
-                .feed(sessioned.input(ICMHolders.ACTION), actionEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.action }))
-                .feed(sessioned.input(ICMHolders.STATE_PRIME), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.statePrime }))
-                .feed(sessioned.input(ICMHolders.STATE), stateEncoder.createInputs(sars.size.toLong(), sars.asSequence().map { it.state }))
+                .feed(sessioned.input(ICMHolders.ACTION), actionEncoder.createFrom(sars.map { it.action }))
+                .feed(sessioned.input(ICMHolders.STATE_PRIME), stateEncoder.createFrom(sars.map { it.statePrime }))
+                .feed(sessioned.input(ICMHolders.STATE), stateEncoder.createFrom(sars.map { it.state }))
     }
 
     override fun intrinsicReward(sars: ICMSample<S, A>): Double {
@@ -471,8 +471,8 @@ fun Model.withScope(name: String) =
 
 class ICMModel(val beta: Double,
                val lr: Double,
-               val stateSize: Int,
-               val actionSize: Int,
+               val stateShape: Shape,
+               val actionShape: Shape,
                val stateEncodingNetwork: Layer,
                val statePrimeNetwork: Layer,
                val predictActionNetwork: Layer
@@ -481,9 +481,9 @@ class ICMModel(val beta: Double,
 
     override fun create(model: Model): ModelOperations {
         val tf = model.tf
-        val state = tf.placeholder(TFloat32::class.java, Placeholder.shape(of(UNKNOWN_SIZE, stateSize.toLong())))
-        val statePrime = tf.placeholder(TFloat32::class.java, Placeholder.shape(of(UNKNOWN_SIZE, stateSize.toLong())))
-        val action = tf.placeholder(TFloat32::class.java, Placeholder.shape(of(UNKNOWN_SIZE, actionSize.toLong())))
+        val state = tf.placeholder(TFloat32::class.java, Placeholder.shape(stateShape))
+        val statePrime = tf.placeholder(TFloat32::class.java, Placeholder.shape(stateShape))
+        val action = tf.placeholder(TFloat32::class.java, Placeholder.shape(actionShape))
         val stateFeatures = stateEncodingNetwork.transform(model.withScope("encodeState"), state)
         val statePrimeFeatures = stateEncodingNetwork.transform(model.withScope("encodeStatePrime"), statePrime)
         val forwardInput = tf.concat(listOf(stateFeatures, action), tf.constant(-1))
@@ -547,11 +547,3 @@ class SoftmaxModel(val inputSize: Long, val finalOutput: Long, val layer: Layer,
 }
 
 
-fun main() {
-    val model = ICMModel(0.7, 0.1, 10, 2,
-            Sequential(dense(5, "state1")),
-            Sequential(dense(5)),
-            Sequential(dense(2))
-    )
-    Sessioned(model, "icm")
-}
