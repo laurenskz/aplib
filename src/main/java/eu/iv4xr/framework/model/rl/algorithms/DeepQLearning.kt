@@ -350,7 +350,6 @@ class PolicyBasedExperienceGenerator<S : Identifiable, A : Identifiable>(
                 .takeWhile { System.currentTimeMillis() < time + totalTime.toMillis() }
                 .maxByOrNull { it.totalReward(gamma.toDouble()) }
         println(episode?.totalReward(gamma.toDouble()))
-        println((episode?.steps?.map { it.transitionProb }))
         return episode?.steps?.map { Sample(it.sp, it.s, it.transitionProb, it.r) } ?: emptyList()
     }
 }

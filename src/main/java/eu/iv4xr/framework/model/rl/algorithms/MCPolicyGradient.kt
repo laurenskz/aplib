@@ -20,6 +20,7 @@ class MCPolicyGradient<S : Identifiable, A : Identifiable>(val policy: Modifiabl
                                                            val random: Random) : RLAlgorithm<S, A> {
     override fun train(mdp: MDP<S, A>): Policy<S, A> {
         repeat(episodes) {
+            println(it)
             if (policy.action(mdp.initialState().sample(random)).supportWithDensities().values.any {
                         it > 0.999999
                     }) return policy

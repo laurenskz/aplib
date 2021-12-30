@@ -1,10 +1,12 @@
 package eu.iv4xr.framework.spatial;
 
+import kotlin.Pair;
+
 import java.util.Objects;
 
 /**
  * This is a simple 3D vector implementation using floats.
- * 
+ *
  * @author Naraenda
  */
 public class Vec3 {
@@ -12,7 +14,7 @@ public class Vec3 {
 
     /**
      * Construct a new vector with three floating point values.
-     * 
+     *
      * @param x: The 'x' component
      * @param y: The 'y' component
      * @param z: The 'z' component
@@ -26,7 +28,7 @@ public class Vec3 {
     /**
      * Construct a vector containg the same constant value for each of the
      * components.
-     * 
+     *
      * @param c: the constant value.
      */
     public Vec3(float c) {
@@ -35,7 +37,7 @@ public class Vec3 {
 
     /**
      * Copies a vector by value.
-     * 
+     *
      * @return New instance of the current vector.
      */
     public Vec3 copy() {
@@ -89,7 +91,7 @@ public class Vec3 {
     /**
      * @param a Vector
      * @param c Scalar
-     * @return (1/c) * A
+     * @return (1 / c) * A
      */
     public static Vec3 div(Vec3 a, float c) {
         return new Vec3(a.x / c, a.y / c, a.z / c);
@@ -138,6 +140,10 @@ public class Vec3 {
         if (s == 0)
             throw new ArithmeticException();
         return div(this, s);
+    }
+
+    public Pair<Integer, Integer> xy() {
+        return new Pair<>((int) x, (int) y);
     }
 
     @Override
