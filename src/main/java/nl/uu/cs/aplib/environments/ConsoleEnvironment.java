@@ -3,7 +3,6 @@ package nl.uu.cs.aplib.environments;
 import java.util.Scanner;
 
 import nl.uu.cs.aplib.mainConcepts.Environment;
-import nl.uu.cs.aplib.mainConcepts.Environment.EnvOperation;
 
 /**
  * A simple implementation of {@link nl.uu.cs.aplib.mainConcepts.Environment}
@@ -32,8 +31,16 @@ public class ConsoleEnvironment extends Environment {
             System.out.println((String) cmd.arg);
             o = consoleInput.nextLine();
             return o;
+        case "observe":
+            return null ;
         }
+        
         throw new IllegalArgumentException();
+    }
+    
+    @Override
+    public Object observe(String agentId)  {
+    	return sendCommand("ANONYMOUS", null, "observe", null);
     }
 
     /**

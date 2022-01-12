@@ -2,8 +2,11 @@ package eu.iv4xr.framework.mainConcepts;
 
 import java.io.Serializable;
 import java.time.LocalTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
+import nl.uu.cs.aplib.utils.Pair;
 import nl.uu.cs.aplib.utils.Parsable;
 
 /**
@@ -84,7 +87,7 @@ public class ObservationEvent implements Serializable, Parsable {
      * coverage-points that we set out for the program-under-test.
      * 
      * <p>
-     * The tester/developer should determine what he/she which coverage points to
+     * The tester/developer should determine what which coverage points to
      * cover when testing a given program-under-test. There should also be a way for
      * a test-agent to observe that it visits such a coverage point. When this
      * happen, the test agent can report this as an instance of this class
@@ -96,11 +99,19 @@ public class ObservationEvent implements Serializable, Parsable {
     public static class CoveragePointEvent extends ObservationEvent {
 
         /**
-         * Create a coverage-event with the given family-name. Family-name is used to
+         * A unique ID that identifies the covered coverage-point.
+         */
+        public String coveragePointId ;
+        
+        /**
+         * Create a coverage-event representing that we just covered the
+         * coverage-point specified by its id. We also specify the family
+         * to which this event belongs to. Family-name is used to
          * identify that the event belongs to some meaningful family.
          */
-        public CoveragePointEvent(String family) {
+        public CoveragePointEvent(String family, String coveragePointId) {
             super(family);
+            this.coveragePointId = coveragePointId ;
         }
 
     }
@@ -327,6 +338,22 @@ public class ObservationEvent implements Serializable, Parsable {
             else
                 o.verdict = false;
             return o;
+        }
+    }
+    
+    /**
+     * This event is used to record a vector of (p,vs) where p is an agent's current
+     * position and vs is a bunch of scalar-values, organized as name-value pairs.
+     */
+    public static class ScalarTracingEvent extends TimeStampedObservationEvent {
+        
+        public Map<String,Number> values = new HashMap<>();
+        
+        public ScalarTracingEvent(Pair<String,Number> ... nameValuePairs) {
+            super("Tracing",null);
+            for(var nameValue : nameValuePairs) {
+                values.put(nameValue.fst, nameValue.snd) ;
+            }
         }
     }
 

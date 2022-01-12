@@ -1,9 +1,5 @@
 package nl.uu.cs.aplib.mainConcepts;
 
-import java.util.*;
-import java.util.function.Function;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -13,10 +9,6 @@ import nl.uu.cs.aplib.exception.AplibError;
 import nl.uu.cs.aplib.mainConcepts.Action.Abort;
 import nl.uu.cs.aplib.mainConcepts.GoalStructure.GoalsCombinator;
 import nl.uu.cs.aplib.mainConcepts.GoalStructure.PrimitiveGoal;
-import nl.uu.cs.aplib.mainConcepts.Tactic.PrimitiveTactic;
-import nl.uu.cs.aplib.multiAgentSupport.ComNode;
-import nl.uu.cs.aplib.multiAgentSupport.Message;
-import nl.uu.cs.aplib.multiAgentSupport.Messenger;
 import nl.uu.cs.aplib.utils.Time;
 
 /**
@@ -171,12 +163,16 @@ public class BasicAgent {
         goal = g;
         if (!allGoalsHaveTactic(g))
             throw new IllegalArgumentException("Agent " + id + ": some goal has no tactic.");
+        if (!g.checkIfWellformed())
+        	throw new IllegalArgumentException("Agent " + id + ": is given a goal-structure that is not well-formed.");
+        
         currentGoal = goal.getDeepestFirstPrimGoal_andAllocateBudget();
         if (currentGoal == null)
             throw new IllegalArgumentException("Agent " + id + ": is gievn a goal structure with NO goal.");
         currentTactic = currentGoal.goal.getTactic();
         if (currentTactic == null)
             throw new IllegalArgumentException("Agent " + id + ", goal " + currentGoal.goal.name + ": has NO tactic.");
+        logger.info("Agent " + id + " is assigned a new goal structure.");
         return this;
     }
 
@@ -250,6 +246,13 @@ public class BasicAgent {
         state.logger = this.logger;
         return this;
     }
+    
+    /**
+     * Return the agent's state.
+     */
+    public SimpleState state() {
+    	return state ;
+    }
 
     /**
      * Attach an Environment to this agent. To be more precise, to attach the
@@ -261,6 +264,13 @@ public class BasicAgent {
             throw new IllegalArgumentException("The agent needs to have a state to attach an environment to it.");
         state.setEnvironment(env);
         return this;
+    }
+    
+    /**
+     * Return the environment attached to this agent.
+     */
+    public Environment env() {
+    	return state.env() ;
     }
 
     /**
@@ -281,6 +291,10 @@ public class BasicAgent {
         lastHandledGoal = goal;
         goal = null;
         currentGoal = null;
+        String status = "" ;
+        if (lastHandledGoal.getStatus().success()) status = "(sucess)" ;
+        else if(lastHandledGoal.getStatus().failed()) status = "(fail)" ;
+        logger.info("Agent " + id + " detaches its goal structure " + status + ".") ;
     }
 
     /**
@@ -344,7 +358,6 @@ public class BasicAgent {
             parent.subgoals.clear();
             parent.subgoals.add(H);
             H.parent = parent;
-            return;
         } else {
             int k = currentGoal.parent.subgoals.indexOf(currentGoal);
             int N = currentGoal.parent.subgoals.size();
@@ -355,6 +368,7 @@ public class BasicAgent {
             }
             G.parent = currentGoal.parent;
         }
+        logger.info("Agent " + id + " inserts a new goal structure after goal " + currentGoal.goal.name + ".");
     }
 
     /**
@@ -406,6 +420,7 @@ public class BasicAgent {
         parent.subgoals.remove(k);
         parent.subgoals.add(k, repeatNode);
         repeatNode.parent = parent;
+        logger.info("Agent " + id + " inserts a new goal structure before goal " + currentGoal.goal.name + ".");
         // case-2 done
     }
 
@@ -417,6 +432,7 @@ public class BasicAgent {
         if (goal == null || currentGoal.isDescendantOf(G))
             throw new IllegalArgumentException();
         removeGoalWorker(goal, G);
+        logger.info("Agent " + id + " removes a sub-goal-structure.");
     }
 
     private boolean removeGoalWorker(GoalStructure H, GoalStructure tobeRemoved) {
@@ -499,7 +515,7 @@ public class BasicAgent {
     private void updateWorker() {
 
         // update the agent's state:
-        state.updateState();
+        state.updateState(id);
 
         var candidates = currentTactic.getFirstEnabledActions(state);
         if (candidates.isEmpty()) {
@@ -515,12 +531,14 @@ public class BasicAgent {
 
         if (chosenAction.action instanceof Abort) {
             // if the action is ABORT:
+            logger.info("Agent " + id + " ABORTs the goal " + currentGoal.goal.name + ".");
             currentGoal.setStatusToFail("Abort was invoked.");
         } else {
             // else execute the action:
             Object proposal = costFunction.executeAction_andInstrumentCost(state, chosenAction.action);
             currentGoal.goal.propose_(proposal);
             if (currentGoal.goal.getStatus().success()) {
+                logger.info("Agent " + id + " SOLVEs the goal " + currentGoal.goal.name + ".");
                 currentGoal.setStatusToSuccess("Solved by " + chosenAction.action.name);
             }
             currentGoal.registerConsumedBudget(costFunction.getCost());
@@ -536,6 +554,7 @@ public class BasicAgent {
         // if the current goal is not decided (still in progres), check if its budget is
         // not exhausted:
         if (currentGoal.getStatus().inProgress() && currentGoal.budget <= 0d) {
+            logger.info("Agent " + id + " FAILs the goal " + currentGoal.goal.name + "; its budget is exhausted.");
             currentGoal.setStatusToFailBecauseBudgetExhausted();
         }
 
@@ -552,6 +571,7 @@ public class BasicAgent {
             // to find another goal to solve:
             currentGoal = currentGoal.getNextPrimitiveGoal_andAllocateBudget();
             if (currentGoal != null) {
+                logger.info("Agent " + id + " switches to goal " + currentGoal.goal.name + ".");
                 currentTactic = currentGoal.goal.getTactic();
                 if (currentTactic == null)
                     // should not happen...

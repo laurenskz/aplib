@@ -1,9 +1,7 @@
 package nl.uu.cs.aplib.mainConcepts;
 
 import java.util.*;
-import java.util.stream.Collectors;
-
-import nl.uu.cs.aplib.exception.AplibError;
+import nl.uu.cs.aplib.Logging;
 
 /**
  * A GoalStructure is a generalization of a {@link Goal}. It is a tree-shaped
@@ -107,6 +105,33 @@ public class GoalStructure {
      */
     public boolean isTopGoal() {
         return parent == null;
+    }
+    public boolean checkIfWellformed() {
+    	return checkIfWellformedWorker(new LinkedList<GoalStructure>(), new LinkedList<GoalStructure>()) ;
+    }
+    
+    private boolean checkIfWellformedWorker(List<GoalStructure>  ancestors, List<GoalStructure> seen) {
+    	if(subgoals==null) {
+    		Logging.getAPLIBlogger().info("A goal has null subgoals-field (use empty instead).");
+    		return  false ;
+    	}
+    	if (ancestors.contains(this)) {
+			Logging.getAPLIBlogger().info("The goal-structure has a cycle. This is not allowed).");
+			return false ;
+		}
+    	if (seen.contains(this)) {
+			Logging.getAPLIBlogger().info("The goal-structure has a goal shared by multiple parents. This is not allowed).");
+			return false ;
+		}
+    	ancestors.add(this) ;
+    	seen.add(this) ;
+    	for(var G : subgoals) {
+    		if(! G.checkIfWellformedWorker(ancestors,seen)) {
+    			return false ;
+    		}
+    	}
+		ancestors.remove(this) ;
+    	return true ;
     }
 
     /**
@@ -368,16 +393,16 @@ public class GoalStructure {
     }
 
     String showGoalStructureStatusWorker(int level) {
-        String indent = space(3 * (level + 1));
+        String indent = space(4 * (level + 1));
         String s = "";
         if (this instanceof PrimitiveGoal) {
-            s += indent + "Goal " + ((PrimitiveGoal) this).goal.getName() + ": " + status;
+            s += indent + "(" + status + ") Goal " + ((PrimitiveGoal) this).goal.getName() ;
         } else
-            s += indent + combinator + ": " + status;
+            s += indent + combinator + ": " + status + ", #children=" + subgoals.size();
+        s += "\n" + indent + "  Budget=" + budget;
         if (bmax < Double.POSITIVE_INFINITY)
-            s += "\n" + indent + "Max. budget:" + bmax;
-        s += "\n" + indent + "Budget: " + budget;
-        s += "\n" + indent + "Consumed budget:" + consumedBudget + "\n";
+            s += "(max=" + bmax + ")";
+        s += ", consumed=" + consumedBudget + "\n";
         for (GoalStructure gt : subgoals)
             s += gt.showGoalStructureStatusWorker(level + 1);
         return s;

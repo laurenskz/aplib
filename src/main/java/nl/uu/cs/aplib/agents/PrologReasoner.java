@@ -24,7 +24,7 @@ import alice.tuprolog.Theory;
  */
 public class PrologReasoner {
 
-    Prolog prolog = new Prolog();
+    public Prolog prolog = new Prolog();
 
     /**
      * A representation of a predicate-name.
@@ -213,7 +213,7 @@ public class PrologReasoner {
      * Representing the result of a Prolog-query.
      */
     public static class QueryResult {
-        SolveInfo info;
+        public SolveInfo info;
 
         public QueryResult(SolveInfo info) {
             this.info = info;
@@ -237,9 +237,13 @@ public class PrologReasoner {
         public String str_(String varname) {
             try {
                 Term t = info.getVarValue(varname);
-                if (!t.isAtom())
-                    throw new IllegalArgumentException();
-                return ((Struct) t).getName();
+                if (t.isAtom()) {
+                	return ((Struct) t).getName();
+                }
+                else return t.toString() ;
+                //if (!t.isAtom())
+                //    throw new IllegalArgumentException();
+                
             } catch (NoSolutionException e) {
                 return null;
             }
@@ -256,6 +260,28 @@ public class PrologReasoner {
         if (!info.isSuccess())
             return null;
         return new QueryResult(info);
+    }
+    
+    public List<QueryResult> queryAll(String queryterm) {
+    	List<QueryResult> results = new LinkedList<>() ;
+    	QueryResult r = query(queryterm) ;
+    	if (r==null) return results ;
+    	results.add(r) ;
+    	while(true) {
+    		try {
+    			SolveInfo info = prolog.solveNext() ;
+    			if(info.isSuccess()) {
+        			results.add(new QueryResult(info)) ;
+        		}
+        		else {
+        			break ;
+        		}
+    		}
+    		catch(Exception e) {
+    			break ;
+    		}
+    	}
+    	return results ;    	
     }
 
     /**

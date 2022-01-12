@@ -2,6 +2,7 @@ package eu.iv4xr.framework.spatial;
 
 import kotlin.Pair;
 
+import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -9,7 +10,10 @@ import java.util.Objects;
  *
  * @author Naraenda
  */
-public class Vec3 {
+public class Vec3 implements Serializable {
+	
+	private static final long serialVersionUID = 1L;
+	
     public float x, y, z;
 
     /**
@@ -105,10 +109,19 @@ public class Vec3 {
     }
 
     /**
-     * @return The distance between two vectors.
+     * @return The distance between two vectors a and b. This is the length of the vector
+     * a - b.
      */
     public static float dist(Vec3 a, Vec3 b) {
         return Vec3.sub(a, b).length();
+    }
+    
+    /**
+     * If d is the length of the vector a - b (so, the distance between them), this method
+     * returns d*d. This is cheaper to compute that d itself.
+     */
+    public static float distSq(Vec3 a, Vec3 b) {
+        return Vec3.sub(a, b).lengthSq();
     }
 
     /**

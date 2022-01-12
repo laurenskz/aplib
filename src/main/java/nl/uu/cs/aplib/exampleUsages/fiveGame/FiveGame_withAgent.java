@@ -326,5 +326,6 @@ public class FiveGame_withAgent {
             System.out.println("(press a ENTER to continue)");
             consoleInput.nextLine();
         }
+        consoleInput.close();
     }
 }

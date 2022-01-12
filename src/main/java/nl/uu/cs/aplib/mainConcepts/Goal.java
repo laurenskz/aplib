@@ -6,7 +6,7 @@ import nl.uu.cs.aplib.mainConcepts.GoalStructure.PrimitiveGoal;
 
 /**
  * An instance of this class represents a goal that can be given to an agent (an
- * instance of {@link SimpleAgent} or its subclasses). To be more precise, an
+ * instance of {@link BasicAgent} or its subclasses). To be more precise, an
  * agent expects a {@link GoalStructure}, and a {@code Goal} is the
  * simplest/primitive form a {@link GoalStructure}. Note that when a
  * {@code Goal} is given to an agent, the agent will expect the the goal to be

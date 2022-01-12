@@ -1,12 +1,11 @@
 package nl.uu.cs.aplib.mainConcepts;
 
-import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * This class is the root class for representing agents' states (an 'agent' is
- * an instance of {@link SimpleAgent} or its subclasses). For most uses, you
+ * an instance of {@link BasicAgent} or its subclasses). For most uses, you
  * will need to <b>extend/subclass</b> this class to enable your agents to track
  * whatever domain specific information that your agents need to track.
  * 
@@ -78,14 +77,18 @@ public class SimpleState {
     }
 
     /**
-     * This will ask the {@link Environment} associated with this state to update
-     * itself. Since this SimpleState does not actually has any state information,
+     * This method should send an observe() command to the {@link Environment} 
+     * (that is attached to this state) to send back a new observation from the
+     * perspective of the specified agent. This method subsequently uses
+     * this fresh observation to update itself.
+     * 
+     * <p>Since this SimpleState does not actually has any state information,
      * being just a 'simple' state, this method updateState() does not actually
      * update anything. Override this method to implement a more elaborate scheme of
      * updating state.
      */
-    public void updateState() {
-        env.refresh();
+    public void updateState(String agentId) {
+        env.observe(agentId);
     };
 
     /**

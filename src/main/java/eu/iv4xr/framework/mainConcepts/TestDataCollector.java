@@ -3,8 +3,12 @@ package eu.iv4xr.framework.mainConcepts;
 import static eu.iv4xr.framework.mainConcepts.ObservationEvent.*;
 
 import java.io.File;
+import java.io.IOException;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
+import nl.uu.cs.aplib.utils.CSVUtility;
 import nl.uu.cs.aplib.utils.Parsable;
 
 /**
@@ -80,6 +84,17 @@ public class TestDataCollector implements Parsable {
             // TODO Auto-generated method stub
             throw new UnsupportedOperationException("TODO");
         }
+        
+        /**
+         * Clear the trace and reset verdict-counts to 0.
+         */
+        public void reset() {
+        	trace.clear(); 
+            numOfPassVerdicts = 0;
+            numOfUndecidedVerdicts = 0;
+            numOfFailVerdicts = 0;
+            lastFailVerdict = null;
+        }
     }
 
     /**
@@ -87,7 +102,7 @@ public class TestDataCollector implements Parsable {
      */
     static class CoverageMap implements Parsable {
 
-        Map<CoveragePointEvent, Integer> coverage = new HashMap<>();
+        Map<String, Integer> coverage = new HashMap<>();
 
         @Override
         public String toString() {
@@ -100,13 +115,13 @@ public class TestDataCollector implements Parsable {
             throw new UnsupportedOperationException("TODO");
         }
 
-        Map<CoveragePointEvent, Integer> getCoverage() {
+        Map<String, Integer> getCoverage() {
             return coverage;
         }
 
-        synchronized void startTrackingCoveragePoint(CoveragePointEvent e) {
-            if (!coverage.containsKey(e)) {
-                coverage.put(e, 0);
+        synchronized void startTrackingCoveragePoint(String coveragePointId) {
+            if (!coverage.containsKey(coveragePointId)) {
+                coverage.put(coveragePointId, 0);
             }
         }
 
@@ -114,13 +129,23 @@ public class TestDataCollector implements Parsable {
             if (e == null)
                 return;
             int count = 1;
-            if (coverage.containsKey(e)) {
-                count += coverage.get(e);
+            if (coverage.containsKey(e.coveragePointId)) {
+                count += coverage.get(e.coveragePointId);
             }
-            coverage.put(e, count);
+            coverage.put(e.coveragePointId, count);
             if (collectiveCovMap != null) {
                 collectiveCovMap.registerVisit(e, null);
             }
+        }
+        
+        /**
+         * Reset all counts to 0.
+         */
+        synchronized void reset() {
+        	for(var e : coverage.entrySet()) {
+        		e.setValue(0) ;
+        	}
+        	
         }
 
     }
@@ -143,12 +168,12 @@ public class TestDataCollector implements Parsable {
     protected Map<String, EventTrace> perAgentEventTrace = new HashMap<>();
 
     /**
-     * Add e to the set of coverage-points whose coverage will be tracked.
+     * Add a coverage-point to the set of coverage-points whose coverage will be tracked.
      */
-    public void startTrackingCoveragePoint(CoveragePointEvent e) {
-        collectiveCoverageMap.startTrackingCoveragePoint(e);
+    public void startTrackingCoveragePoint(String coveragePointId) {
+        collectiveCoverageMap.startTrackingCoveragePoint(coveragePointId);
         for (CoverageMap CM : perAgentCoverage.values())
-            CM.startTrackingCoveragePoint(e);
+            CM.startTrackingCoveragePoint(coveragePointId);
     }
 
     /**
@@ -163,8 +188,8 @@ public class TestDataCollector implements Parsable {
         perAgentEventTrace.put(agentUniqueId, new EventTrace());
         CoverageMap CM = new CoverageMap();
         perAgentCoverage.put(agentUniqueId, CM);
-        for (CoveragePointEvent e : collectiveCoverageMap.coverage.keySet())
-            CM.startTrackingCoveragePoint(e);
+        for (String coveragePoint : collectiveCoverageMap.coverage.keySet())
+            CM.startTrackingCoveragePoint(coveragePoint);
     }
 
     /**
@@ -206,7 +231,7 @@ public class TestDataCollector implements Parsable {
      * The integer it is mapped to is the number of times the coverage-point is
      * visited.
      */
-    public Map<CoveragePointEvent, Integer> getTestAgentCoverage(String agentUniqueId) {
+    public Map<String, Integer> getTestAgentCoverage(String agentUniqueId) {
         CoverageMap CM = perAgentCoverage.get(agentUniqueId);
         if (CM == null)
             throw new IllegalArgumentException("Agent " + agentUniqueId + " is unknown.");
@@ -221,7 +246,7 @@ public class TestDataCollector implements Parsable {
      * track. The integer it is mapped to is the number of times the coverage-point
      * is visited.
      */
-    public Map<CoveragePointEvent, Integer> getCollectiveCoverage() {
+    public Map<String, Integer> getCollectiveCoverage() {
         return collectiveCoverageMap.coverage;
     }
 
@@ -236,6 +261,19 @@ public class TestDataCollector implements Parsable {
         if (ET == null)
             throw new IllegalArgumentException("Agent " + agentUniqueId + " is unknown.");
         return ET.trace;
+    }
+    
+    /**
+     * Return the trace of the specified agent, containing only of ScalarTracingEvents.
+     */
+    public List<ScalarTracingEvent> getTestAgentScalarsTrace(String agentUniqueId) {
+        EventTrace ET = perAgentEventTrace.get(agentUniqueId);
+        if (ET == null)
+            throw new IllegalArgumentException("Agent " + agentUniqueId + " is unknown.");
+        return ET.trace.stream()
+                  .filter(e -> e instanceof ScalarTracingEvent)
+                  .map(e -> (ScalarTracingEvent) e)
+                  .collect(Collectors.toList()) ;
     }
 
     /**
@@ -339,12 +377,95 @@ public class TestDataCollector implements Parsable {
     }
 
     /**
-     * Save the data collected to a file.
+     * Save the data collected to files. Collected non-coverage events will be saved to the file
+     * fname (if it is not null). Coverage data are saved to covFname, if the latter is not null. 
+     * 
+     * Format of the events-file:
+     * 
+     *    For verdict-event: agent,time,"VerdictEvent",family,info,verdict
+     *    For scalar-event: agent,time."ScalarTracingEvent",propname1,val1,propname2,val2,...
+     *    
+     * Formal of coverage-file:
+     *    
+     *    coverage-point-name,num-of-total-visits,agent1,num-visit-by-agent1,agent2,...
+     * 
      */
-    public void save(File file) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("TODO");
-    }
+	public void save(String fname, String covFname) throws IOException {
+
+		// Saving the events:
+
+		if (fname != null) {
+			DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss:SSS");
+			List<String> agents = perAgentEventTrace.keySet().stream().collect(Collectors.toList());
+			agents.sort(Comparator.comparing(String::toString));
+			
+			List<String[]> data = new LinkedList<>();
+
+			for (var A : agents) {
+				var trace = getTestAgentTrace(A);
+				for (var event : trace) {
+					List<String> row = new LinkedList<>();
+					row.add(A); // agent namme
+					row.add(timeFormatter.format(event.timestamp)); // time-stamp
+					row.add(event.getClass().getSimpleName()); // event-type (e.g. verdict)
+					if (event instanceof VerdictEvent) {
+						row.add(event.familyName); // family
+						if(event.info!=null) row.add(CSVUtility.cleanUpCommas(event.info)); // info
+						row.add("" + ((VerdictEvent) event).verdict); // verdict
+					}
+					if (event instanceof ScalarTracingEvent) {
+						ScalarTracingEvent e = (ScalarTracingEvent) event;
+						List<String> keys = new LinkedList<>();
+						keys.addAll(e.values.keySet());
+						keys.sort(Comparator.comparing(String::toString));
+						for (var key : keys) {
+							row.add(key);
+							row.add("" + e.values.get(key));
+						}
+					}
+					data.add((String[]) row.toArray(new String[0]));
+				}
+				CSVUtility.exportToCSVfile(',', data, fname);
+			}
+		}
+
+		// Saving the coverage data:
+		if (covFname != null) {
+			List<String> coveragePoints = collectiveCoverageMap.coverage.keySet().stream().collect(Collectors.toList());
+			List<String> agents = perAgentCoverage.keySet().stream().collect(Collectors.toList());
+			coveragePoints.sort(Comparator.comparing(String::toString));
+			agents.sort(Comparator.comparing(String::toString));
+
+			List<String[]> data = new LinkedList<>();
+
+			for (var cp : coveragePoints) {
+				List<String> row = new LinkedList<>();
+				row.add(cp); // the name of coverage-point
+				row.add("" + collectiveCoverageMap.coverage.get(cp)); // total number of visits
+				for (var A : agents) {
+					row.add(A);  // agent name
+					row.add("" + perAgentCoverage.get(A).coverage.get(cp)); // #visits by A
+				}
+				data.add((String[]) row.toArray(new String[0]));
+			}
+			CSVUtility.exportToCSVfile(',', data, covFname);
+		}
+	}
+    
+	/**
+	 * Reset the agents' traces recorded in this data-collector, and also reset all
+	 * coverage information tracked by this data-collector (that means reseting their
+	 * visit-counts to 0). 
+	 */
+	public void reset() {
+		for (var tr : this.perAgentEventTrace.values()) {
+			tr.reset(); 
+		}
+		for (var cmap : this.perAgentCoverage.values()) {
+			cmap.reset(); 
+		}
+		this.collectiveCoverageMap.reset(); 
+	}
 
     /**
      * Merge two sets of collected test data. The merged data is put into a new
@@ -363,6 +484,42 @@ public class TestDataCollector implements Parsable {
     public static TestDataCollector readCollectedTestData(File file) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("TODO");
+    }
+    
+    /**
+     * Export the scalar-trace of an agent to a CSV-file. ';' is used as the separator.
+     */
+    public void saveTestAgentScalarsTraceAsCSV(String agentUniqueId, String filename) throws IOException {
+        
+        List<ScalarTracingEvent> trace = getTestAgentScalarsTrace(agentUniqueId) ;
+        
+        Set<String> propertyNames = new HashSet<>() ;
+        for(var e : trace) {
+        	propertyNames.addAll(e.values.keySet()) ;
+        }
+                
+        List<String> collumnNames = propertyNames.stream().collect(Collectors.toList()) ;
+        collumnNames.sort(Comparator.comparing(s -> s.toString()));
+        
+        int N = collumnNames.size() ;
+        String[] collumnNames_ = new String[N] ;
+        int k=0 ;
+        for(var name : collumnNames) {
+        	collumnNames_[k] = name ;
+        	k++ ;
+        }
+        
+        List<Number[]> data = new LinkedList<>() ;
+        
+        for(ScalarTracingEvent e : trace) {
+        	Number[] row = new Number[N] ;
+        	for(k=0; k<N; k++) {
+        		row[k] = e.values.get(collumnNames_[k]) ;
+        	}
+        	data.add(row) ;
+        }
+        
+        CSVUtility.exportToCSVfile(',', collumnNames_, data, filename);
     }
 
 }

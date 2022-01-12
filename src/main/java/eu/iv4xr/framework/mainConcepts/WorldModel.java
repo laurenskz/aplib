@@ -4,7 +4,6 @@ import java.io.Serializable;
 import java.util.*;
 
 import eu.iv4xr.framework.spatial.Vec3;
-import nl.uu.cs.aplib.mainConcepts.Environment;
 
 /**
  * This describes a fragment of a virtual world in terms of how it is
@@ -13,9 +12,11 @@ import nl.uu.cs.aplib.mainConcepts.Environment;
  * the agent's belief on how the world is structured; this may incorporate its
  * past knowledge which may no longer be up to date.
  */
-public class WorldModel {
+public class WorldModel implements Serializable {
 
-    /**
+	private static final long serialVersionUID = 1L;
+
+	/**
      * The id of the agent that owns this World Model.
      */
     public String agentId;
@@ -209,47 +210,6 @@ public class WorldModel {
         for (WorldEntity e : observation.elements.values()) {
             this.updateEntity(e);
         }
-    }
-
-    /**
-     * A query method that returns the set of possible interaction-types(e.g.
-     * "push", "pick-up") that an agent can do on in-world entities. For each
-     * interaction-type I, the method also returns a mapping to the type of entities
-     * that interactions of type I would be applicable, e.g. "push" would be
-     * applicable to "button"s. The set of available interaction types and their
-     * mapping to entities-types depend on the specific game under test, but this
-     * set and mapping should be static.
-     * 
-     * Note that when e.g. "pick-up" is applicable to entities of type "flower", it
-     * only means that the agent can potentially pick up a flower. Whether this is
-     * actually possible still depends on e.g. the agent state, e.g. if it stands
-     * close enough to the flower. The logic of state-dependent applicability can be
-     * queried through the method canInteract(). Note that even then, it is still up
-     * to the game under test to have the final say whether the interaction, when
-     * attempted, would be successful.
-     * 
-     * This method should be implemented by the subclass. So, override this.
-     */
-    public Map<String, Set<String>> availableInteractionTypes() {
-        throw new UnsupportedOperationException();
-    }
-
-    /**
-     * A query method that checks whether it would be possible for the agent to do
-     * an interaction of type ity (e.g. "push") on the specified target entity. The
-     * method will inspect both the agent state (e.g. its position) and the target
-     * entity's state (as far as these informations are available in this
-     * WorldModel) to infer if the interaction would be possible.
-     * 
-     * Note that the inference done by this method would be based on the information
-     * available in this WorldModel, which may only partially represent the actual
-     * game state. So, even if this method returns a "true", executing the
-     * interaction on the game under test may still be unsuccessful.
-     * 
-     * This method should be implemented by the subclass. So, override this.
-     */
-    public boolean canInteract(String interactionType, WorldEntity e) {
-        throw new UnsupportedOperationException();
     }
 
     /**

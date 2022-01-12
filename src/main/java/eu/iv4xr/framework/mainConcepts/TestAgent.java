@@ -1,18 +1,16 @@
 package eu.iv4xr.framework.mainConcepts;
 
 import static eu.iv4xr.framework.mainConcepts.ObservationEvent.*;
-import static eu.iv4xr.framework.mainConcepts.TestDataCollector.*;
-
-import java.util.*;
+import java.util.function.Function;
 
 import nl.uu.cs.aplib.agents.AutonomousBasicAgent;
 import nl.uu.cs.aplib.agents.State;
-import nl.uu.cs.aplib.mainConcepts.BasicAgent;
 import nl.uu.cs.aplib.mainConcepts.CostFunction;
 import nl.uu.cs.aplib.mainConcepts.Deliberation;
 import nl.uu.cs.aplib.mainConcepts.Environment;
 import nl.uu.cs.aplib.mainConcepts.GoalStructure;
 import nl.uu.cs.aplib.mainConcepts.SimpleState;
+import nl.uu.cs.aplib.utils.Pair;
 
 /**
  * This class implements a test-agent. It extents
@@ -39,7 +37,7 @@ import nl.uu.cs.aplib.mainConcepts.SimpleState;
  * 
  * <ul>
  * <li><b>Verdicts</b>. A verdict is an instance of
- * {@link TestDataCollector.VerdictEvent}.
+ * {@link ObservationEvent.VerdictEvent}.
  * </ul>
  * 
  * 
@@ -51,7 +49,15 @@ public class TestAgent extends AutonomousBasicAgent {
 
     protected String testDesc;
     protected TestDataCollector testDataCollector;
-    protected GoalStructure goal;
+    protected SyntheticEventsProducer syntheticEventsProducer ;
+    
+    //protected GoalStructure goal;  <-- agent already has this field!
+    
+    /**
+     * If defined, this function can be used to evaluate an agent's state, to produce a list
+     * of name-value properties of the state. The value is required to be numeric.
+     */
+    protected Function<SimpleState,Pair<String,Number>[]> scalarInstrumenter = null ;
 
     /**
      * Create a blank instance of TestAgent. To be useful you will need to add few
@@ -89,6 +95,16 @@ public class TestAgent extends AutonomousBasicAgent {
 
     public TestDataCollector getTestDataCollector() {
         return testDataCollector;
+    }
+    
+    public TestAgent attachSyntheticEventsProducer(SyntheticEventsProducer syntheticEventsProducer) {
+    	this.syntheticEventsProducer = syntheticEventsProducer ;
+    	syntheticEventsProducer.agent = this ;
+    	return this ;
+    }
+    
+    public SyntheticEventsProducer getSyntheticEventsProducer() {
+    	return this.syntheticEventsProducer ;
     }
 
     /**
@@ -198,6 +214,46 @@ public class TestAgent extends AutonomousBasicAgent {
     @Override
     public TestAgent withCostFunction(CostFunction f) {
         return (TestAgent) super.withCostFunction(f);
+    }
+    
+	/**
+	 * Attach an instrumentation function. This is a function can be used to
+	 * evaluate an agent's state, to produce a list of name-value properties of the
+	 * state. The value is required to be numeric.
+	 */
+    public TestAgent withScalarInstrumenter(Function<SimpleState,Pair<String,Number>[]> scalarInstrumenter) {
+        this.scalarInstrumenter =  scalarInstrumenter ;
+        return this ;
+    }
+    
+	/**
+	 * This will invoke the stadard update() function of the agent. This is defined
+	 * by {@link nl.uu.cs.aplib.mainConcepts.BasicAgent#update()}; e.g. this decides
+	 * which action is to take next and execute that action. If the action solves
+	 * the current goal, the next goal will be decided.
+	 * 
+	 * <p>
+	 * Additionally, in this update() the following updates are also performed:
+	 * 
+	 * <ul>
+	 * <li>If there is a data-collector {@link #testDataCollector} and a
+	 * scalar-instrumenter {@link #scalarInstrumenter} attached to this state, the
+	 * instrumenter will be invoked, and the resulting data are registered into the
+	 * data-collector.
+	 * <li>If there is a synthetic event-producer {@link #syntheticEventsProducer}
+	 * attached to this state, it will be invoked.
+	 * </ul>
+	 */
+    @Override
+    public void update() {
+        super.update();
+        if(testDataCollector != null && scalarInstrumenter != null) {
+            Pair<String,Number>[] properties = scalarInstrumenter.apply(state) ;
+            registerEvent(new ScalarTracingEvent(properties)) ;
+        }
+        if(this.syntheticEventsProducer != null) {
+        	syntheticEventsProducer.generateCurrentEvents();
+        }
     }
 
 }
