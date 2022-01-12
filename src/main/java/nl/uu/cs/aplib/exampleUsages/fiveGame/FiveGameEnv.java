@@ -3,6 +3,7 @@ package nl.uu.cs.aplib.exampleUsages.fiveGame;
 import kotlin.Pair;
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.GAMESTATUS;
 import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.SQUARE;
+import nl.uu.cs.aplib.exampleUsages.fiveGame.FiveGame.Square_;
 import nl.uu.cs.aplib.mainConcepts.Environment;
 
 import java.util.ArrayList;
@@ -84,21 +85,21 @@ public class FiveGameEnv extends Environment {
 
     @Override
     protected Object sendCommand_(EnvOperation cmd) {
-    	
-    	switch (cmd.command) {
-    	   case "move" : 
-    		   Object[] arg_ = (Object[]) cmd.arg;
-               thegame.move((SQUARE) arg_[0], (int) arg_[1], (int) arg_[2]);
-               return thegame.getGameStatus();
-    	   case "observe" : 
-    		   return new Pair<GAMESTATUS, SQUARE[][]>(thegame.getGameStatus(), thegame.board) ;
-    	}
-    	throw new IllegalArgumentException();
+
+        switch (cmd.command) {
+            case "move":
+                Object[] arg_ = (Object[]) cmd.arg;
+                thegame.move((SQUARE) arg_[0], (int) arg_[1], (int) arg_[2]);
+                return thegame.getGameStatus();
+            case "observe":
+                return new Pair<GAMESTATUS, SQUARE[][]>(thegame.getGameStatus(), thegame.board);
+        }
+        throw new IllegalArgumentException();
     }
-    
+
     @Override
     public Pair<GAMESTATUS, SQUARE[][]> observe(String agentId) {
-        return (Pair<GAMESTATUS, SQUARE[][]>) this.sendCommand("ANONYMOUS", null, "observe", null) ;
+        return (Pair<GAMESTATUS, SQUARE[][]>) this.sendCommand("ANONYMOUS", null, "observe", null);
     }
 
 

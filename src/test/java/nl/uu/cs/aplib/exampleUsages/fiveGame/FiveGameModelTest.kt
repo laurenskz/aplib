@@ -79,12 +79,12 @@ internal class FiveGameModelTest {
         opponent.rnd = java.util.Random(1234)
         thegame.attachOpponent(opponent)
         thegame.move(SQUARE.CIRCLE, 0, 0)
-        state.updateState()
+        state.updateState("")
         assertEquals(fiveGameModel.stateString(fiveGameModel.convertState(state)).filter { it in "?OX#" },
                 thegame.toString().filter { it in "?OX#" })
 
         thegame.move(SQUARE.CIRCLE, 1, 0)
-        state.updateState()
+        state.updateState("")
         assertEquals(fiveGameModel.stateString(fiveGameModel.convertState(state)).filter { it in "?OX#" },
                 thegame.toString().filter { it in "?OX#" })
     }

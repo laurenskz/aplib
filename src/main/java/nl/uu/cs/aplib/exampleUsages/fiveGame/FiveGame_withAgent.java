@@ -140,8 +140,8 @@ public class FiveGame_withAgent {
         }
 
         @Override
-        public void updateState() {
-            super.updateState();
+        public void updateState(String agentId) {
+            super.updateState(agentId);
             board = env().thegame.board;
             var lastmove = env().lastmove;
             if (lastmove != null) {

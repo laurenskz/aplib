@@ -88,7 +88,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
     }
 
     fun currentState(): ModelState {
-        state.updateState()
+        state.updateState(id)
         return model.convertState(state)
     }
 
@@ -97,7 +97,7 @@ class RLAgent<ModelState : Identifiable, Action : Identifiable>(private val mode
         rewards.clear()
         resetGoal()
         state.env().resetWorker()
-        state.updateState()
+        state.updateState(id)
         transitions = TransitionLog(model)
     }
 

@@ -3,6 +3,7 @@ package eu.iv4xr.framework.mainConcepts;
 import java.io.Serializable;
 import java.util.*;
 
+import eu.iv4xr.framework.environments.W3DEnvironment;
 import eu.iv4xr.framework.spatial.Vec3;
 
 /**

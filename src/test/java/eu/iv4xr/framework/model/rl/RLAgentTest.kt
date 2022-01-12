@@ -28,8 +28,8 @@ internal class RLAgentTest {
 
         override fun env() = super.env() as TestEnv
 
-        override fun updateState() {
-            super.updateState()
+        override fun updateState(agentID:String) {
+            super.updateState(agentID)
             state = env().state
         }
     }
@@ -134,7 +134,7 @@ internal class RLAgentTest {
                 .attachState(state1)
                 .trainWith(GreedyAlg(0.97, 6))
         assertEquals("", state1.state)
-        state1.updateState()
+        state1.updateState("")
 
         while (g.status.inProgress()) {
             assertTrue(listOf("One", "Two").contains(state1.state))
