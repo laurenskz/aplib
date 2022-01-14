@@ -1,5 +1,6 @@
 package eu.iv4xr.framework.model.distribution
 
+import eu.iv4xr.framework.utils.cons
 import org.junit.jupiter.api.Test
 
 import org.junit.jupiter.api.Assertions.*
@@ -17,11 +18,26 @@ internal class DistributionDSLTest {
     }
 
     @Test
+    fun fold() {
+        val dists = listOf(
+            Distributions.uniform(1, 2),
+            Distributions.uniform(3, 4),
+            Distributions.uniform(5, 6),
+        )
+        val final = dists.foldD(always(listOf<Int>())) { l, i ->
+            l + i
+        }
+        println(final.supportWithDensities())
+    }
+
+    @Test
     fun softmax() {
-        val bab = Distributions.softmax(mapOf(
+        val bab = Distributions.softmax(
+            mapOf(
                 "Sun" to 1.0,
                 "Rain" to 2.0,
-        ))
+            )
+        )
         println(bab.supportWithDensities())
     }
 

@@ -1,5 +1,8 @@
 package eu.iv4xr.framework.model.rl.valuefunctions
 
+import eu.iv4xr.framework.model.distribution.Distribution
+import eu.iv4xr.framework.model.distribution.expectedValue
+import eu.iv4xr.framework.model.rl.BurlapAction
 import eu.iv4xr.framework.model.rl.Identifiable
 import eu.iv4xr.framework.model.rl.algorithms.ModelDescription
 import eu.iv4xr.framework.model.rl.approximation.FeatureActionFactory
@@ -9,7 +12,8 @@ import eu.iv4xr.framework.model.rl.burlapadaptors.DataClassHashableState
 import org.jetbrains.kotlinx.dl.api.core.GraphTrainableModel
 import org.jetbrains.kotlinx.dl.dataset.OnHeapDataset
 
-class StateValueFunction2<S : Identifiable>(val model: ModelDescription, val features: FeatureVectorFactory<S>) : TrainableValuefunction<S> {
+class StateValueFunction2<S : Identifiable>(val model: ModelDescription, val features: FeatureVectorFactory<S>) :
+    TrainableValuefunction<S> {
 
 
     val modelInstance = model.create(features.count(), 1)
@@ -20,11 +24,17 @@ class StateValueFunction2<S : Identifiable>(val model: ModelDescription, val fea
 
     override fun values(states: List<S>): List<Float> {
         val input = Array(states.size) { features.floatFeatures(states[it]) }
-        return modelInstance.predictSoftly(OnHeapDataset.create(input, FloatArray(input.size)), states.size).map { it[0] }
+        return modelInstance.predictSoftly(OnHeapDataset.create(input, FloatArray(input.size)), states.size)
+            .map { it[0] }
     }
 
     override fun train(target: Target<S>) {
-        modelInstance.fit(OnHeapDataset.Companion.create(arrayOf(features.floatFeatures(target.state)), floatArrayOf(target.target)))
+        modelInstance.fit(
+            OnHeapDataset.Companion.create(
+                arrayOf(features.floatFeatures(target.state)),
+                floatArrayOf(target.target)
+            )
+        )
     }
 
     override fun train(targets: List<Target<S>>) {
@@ -35,7 +45,34 @@ class StateValueFunction2<S : Identifiable>(val model: ModelDescription, val fea
     }
 }
 
-class DownSampledValueFunction<S : Identifiable, R : Identifiable>(val valuefunction: TrainableValuefunction<R>, val downSampler: (S) -> R) : TrainableValuefunction<S> {
+class BeliefQFunction<S : Identifiable, A : Identifiable, B : Identifiable>(
+    val qMdp: QFunction<S, A>,
+    val bs: (B) -> Distribution<S>
+) : QFunction<B, A> {
+    override fun qValue(state: B, action: A): Float {
+        return bs(state).expectedValue {
+            qMdp.qValue(it, action).toDouble()
+        }.toFloat()
+    }
+}
+
+class DownSampledQFunction<S : Identifiable, A : Identifiable, R : Identifiable>(
+    val qFunction: TrainableQFunction<R, A>,
+    val downSampler: (S) -> R
+) : TrainableQFunction<S, A> {
+    override fun qValue(state: S, action: A): Float {
+        return qFunction.qValue(downSampler(state), action)
+    }
+
+    override fun train(target: QTarget<S, A>) {
+        qFunction.train(QTarget(downSampler(target.state), target.action, target.target))
+    }
+}
+
+class DownSampledValueFunction<S : Identifiable, R : Identifiable>(
+    val valuefunction: TrainableValuefunction<R>,
+    val downSampler: (S) -> R
+) : TrainableValuefunction<S> {
     override fun value(state: S): Float {
         return valuefunction.value(downSampler(state))
     }
@@ -45,19 +82,20 @@ class DownSampledValueFunction<S : Identifiable, R : Identifiable>(val valuefunc
     }
 }
 
-class QTable<S : DataClassHashableState, A : DataClassAction>(val learningRate: Float) : TrainableQFunction<S, A> {
-    val qValues = mutableMapOf<Pair<S, A>, Float>()
+class QTable<S : DataClassHashableState, A : BurlapAction>(val learningRate: Float) : TrainableQFunction<S, A> {
+    val qValues = mutableMapOf<Pair<S, String>, Float>()
     override fun qValue(state: S, action: A): Float {
-        return qValues[state to action] ?: 0f
+        return qValues[state to action.actionName()] ?: 0f
     }
 
     override fun train(target: QTarget<S, A>) {
         val current = qValue(target.state, target.action)
-        qValues[target.state to target.action] = current + learningRate * (target.target - current)
+        qValues[target.state to target.action.actionName()] = current + learningRate * (target.target - current)
     }
 }
 
-class ValueTable<S : DataClassHashableState>(val learningRate: Float, val initial: Float = 0f) : TrainableValuefunction<S> {
+class ValueTable<S : DataClassHashableState>(val learningRate: Float, val initial: Float = 0f) :
+    TrainableValuefunction<S> {
     private val values = mutableMapOf<S, Float>()
     val targets: List<Target<S>>
         get() = values.map { Target(it.key, it.value) }
@@ -77,7 +115,10 @@ class ValueTable<S : DataClassHashableState>(val learningRate: Float, val initia
 
 class MergedValueFunction<S : DataClassHashableState>(table: ValueTable<S>)
 
-class StateActionInputQModel<S : Identifiable, A : Identifiable>(val model: ModelDescription, val featureActionFactory: FeatureActionFactory<S, A>) : TrainableQFunction<S, A> {
+class StateActionInputQModel<S : Identifiable, A : Identifiable>(
+    val model: ModelDescription,
+    val featureActionFactory: FeatureActionFactory<S, A>
+) : TrainableQFunction<S, A> {
 
     val modelInstance = model.create(featureActionFactory.count(), 1)
 
@@ -91,11 +132,17 @@ class StateActionInputQModel<S : Identifiable, A : Identifiable>(val model: Mode
 
     override fun qValues(states: List<Pair<S, A>>): List<Float> {
         val input = Array(states.size) { featureActionFactory.floatFeatures(states[it]) }
-        return modelInstance.predictSoftly(OnHeapDataset.create(input, FloatArray(input.size)), states.size).map { it[0] }
+        return modelInstance.predictSoftly(OnHeapDataset.create(input, FloatArray(input.size)), states.size)
+            .map { it[0] }
     }
 
     override fun train(target: QTarget<S, A>) {
-        modelInstance.fit(OnHeapDataset.create(arrayOf(featureActionFactory.floatFeatures(target.state to target.action)), floatArrayOf(target.target)))
+        modelInstance.fit(
+            OnHeapDataset.create(
+                arrayOf(featureActionFactory.floatFeatures(target.state to target.action)),
+                floatArrayOf(target.target)
+            )
+        )
     }
 
     override fun train(targets: List<QTarget<S, A>>) {

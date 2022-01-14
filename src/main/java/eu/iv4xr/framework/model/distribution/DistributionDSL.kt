@@ -9,8 +9,8 @@ fun <T> Distribution<T>.sample(count: Int, random: Random): Map<T, Int> {
     return (0 until count).map {
         sample(random)
     }
-            .groupBy { it }
-            .mapValues { it.value.count() }
+        .groupBy { it }
+        .mapValues { it.value.count() }
 }
 
 /**
@@ -35,7 +35,8 @@ fun <T> Distribution<T>.expectedValue(samples: Int, random: Random, evaluator: (
     return (0 until samples).map { this.sample(random).let(evaluator) }.average()
 }
 
-fun <T : Number> Distribution<T>.expectedValue(samples: Int, random: Random) = expectedValue(samples, random) { it.toDouble() }
+fun <T : Number> Distribution<T>.expectedValue(samples: Int, random: Random) =
+    expectedValue(samples, random) { it.toDouble() }
 
 
 /**
@@ -153,6 +154,13 @@ fun flip(p: Double) = Distributions.bernoulli(p)
  * Make element t have probability 1. I.e. a deterministic distribution
  */
 fun <T> always(t: T) = Distributions.deterministic(t)
+
+fun <T, R> List<Distribution<T>>.foldD(initial: Distribution<R>, reduce: (R, T) -> R): Distribution<R> {
+    if (isEmpty()) return initial
+    val head = first()
+    val tail = subList(1, size)
+    return tail.foldD(initial.chain { r -> head.map { t -> reduce(r, t) } }, reduce)
+}
 
 /**
  * Computes the cartesian product of two distributions

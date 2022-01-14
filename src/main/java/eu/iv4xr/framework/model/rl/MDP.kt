@@ -46,5 +46,4 @@ interface MDP<State : Identifiable, Action : Identifiable> {
         val r = reward(state, action, sp).sample(random)
         return BurlapAlgorithms.SARS(state, action, sp, r, 0.0)
     }
-
 }
