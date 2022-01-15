@@ -20,19 +20,27 @@ import kotlin.math.exp
 import kotlin.math.max
 import kotlin.random.Random
 
-class GreedyPolicy<S : Identifiable, A : Identifiable>(val qFunction: QFunction<S, A>, val mdp: MDP<S, A>) : Policy<S, A> {
+class GreedyPolicy<S : Identifiable, A : Identifiable>(val qFunction: QFunction<S, A>, val actions: (S) -> List<A>) :
+    Policy<S, A> {
+
+
+    constructor(qFunction: QFunction<S, A>, mdp: MDP<S, A>) : this(qFunction, {
+        mdp.possibleActions(it).toList()
+    })
 
     override fun action(state: S): Distribution<A> {
-        val qForActions = qFunction.qForActions(state, mdp.possibleActions(state).toList())
+        val qForActions = qFunction.qForActions(state, actions(state))
         val action = qForActions.maxByOrNull { it.second }
-                ?: error("No element found")
+            ?: error("No element found")
         return always(action.first)
     }
 }
 
-class SoftmaxGreedyPolicy<S : Identifiable, A : Identifiable>(val qFunction: QFunction<S, A>, val mdp: MDP<S, A>) : Policy<S, A> {
+class SoftmaxGreedyPolicy<S : Identifiable, A : Identifiable>(val qFunction: QFunction<S, A>, val mdp: MDP<S, A>) :
+    Policy<S, A> {
     override fun action(state: S): Distribution<A> {
-        val qForActions = qFunction.qForActions(state, mdp.possibleActions(state).toList()).toMap().mapValues { it.value.toDouble() }
+        val qForActions =
+            qFunction.qForActions(state, mdp.possibleActions(state).toList()).toMap().mapValues { it.value.toDouble() }
         return Distributions.softmax(qForActions)
     }
 }
@@ -42,7 +50,14 @@ data class Avg(val count: Int, val sum: Double) {
         get() = sum / count
 }
 
-class MCSampleGreedyPolicy<S : Identifiable, A : Identifiable>(val qFunction: QFunction<S, A>, val mdp: MDP<S, A>, val repetitions: Int, val gamma: Float, val depth: Int, val random: Random) : Policy<S, A> {
+class MCSampleGreedyPolicy<S : Identifiable, A : Identifiable>(
+    val qFunction: QFunction<S, A>,
+    val mdp: MDP<S, A>,
+    val repetitions: Int,
+    val gamma: Float,
+    val depth: Int,
+    val random: Random
+) : Policy<S, A> {
 
 
     val uniform = RandomPolicy(mdp)
@@ -65,7 +80,11 @@ class MCSampleGreedyPolicy<S : Identifiable, A : Identifiable>(val qFunction: QF
     }
 }
 
-class EGreedyPolicy<S : Identifiable, A : Identifiable>(val epsilon: Double, val mdp: MDP<S, A>, val policy: Policy<S, A>) : Policy<S, A> {
+class EGreedyPolicy<S : Identifiable, A : Identifiable>(
+    val epsilon: Double,
+    val mdp: MDP<S, A>,
+    val policy: Policy<S, A>
+) : Policy<S, A> {
     override fun action(state: S): Distribution<A> {
         return flip(epsilon).chain {
             val possibleActions = mdp.possibleActions(state).toList()
@@ -79,8 +98,9 @@ class EGreedyPolicy<S : Identifiable, A : Identifiable>(val epsilon: Double, val
 }
 
 
-class QFromMerged<S : Identifiable, A : Identifiable>(val factory: FeatureActionFactory<S, A>, val learningRate: Double,
-                                                      val initial: Double = 0.0
+class QFromMerged<S : Identifiable, A : Identifiable>(
+    val factory: FeatureActionFactory<S, A>, val learningRate: Double,
+    val initial: Double = 0.0
 ) : TrainableQFunction<S, A> {
     val value = LinearStateValueFunction(factory, learningRate, initial)
     override fun qValue(state: S, action: A): Float {
@@ -94,9 +114,9 @@ class QFromMerged<S : Identifiable, A : Identifiable>(val factory: FeatureAction
 }
 
 class LinearStateValueFunction<S>(
-        val factory: FeatureVectorFactory<S>,
-        val learningRate: Double,
-        val initial: Double = 0.0
+    val factory: FeatureVectorFactory<S>,
+    val learningRate: Double,
+    val initial: Double = 0.0
 ) : TrainableValuefunction<S> {
     val weights = DoubleArray(factory.count()) { initial }
     override fun value(state: S): Float {
@@ -117,17 +137,18 @@ class LinearStateValueFunction<S>(
     }
 }
 
-class ValueFunctionWithoutProgress<S : Identifiable>(val wrapped: Valuefunction<StateWithGoalProgress<S>>) : Valuefunction<S> {
+class ValueFunctionWithoutProgress<S : Identifiable>(val wrapped: Valuefunction<StateWithGoalProgress<S>>) :
+    Valuefunction<S> {
     override fun value(state: S): Float {
         return wrapped.value(StateWithGoalProgress(listOf(), state))
     }
 }
 
 class SoftmaxPolicy<S : Identifiable, A : Identifiable>(
-        val factory: FeatureActionFactory<S, A>,
-        val mdp: MDP<S, A>,
-        val learningRate: Double,
-        val init: Double = 0.0
+    val factory: FeatureActionFactory<S, A>,
+    val mdp: MDP<S, A>,
+    val learningRate: Double,
+    val init: Double = 0.0
 ) : ModifiablePolicy<S, A> {
 
     val weights = DoubleArray(factory.count()) { init }
